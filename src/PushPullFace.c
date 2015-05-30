@@ -84,6 +84,8 @@ void* bt_row;
 void* seconds_row;
 void* battery_row;
 
+bool first_startup;
+
 PropertyAnimation* prepare_animation(Layer* layer, GRect *start, GRect *finish, int duration, int delay) {
   PropertyAnimation *anim = property_animation_create_layer_frame(layer, start, finish);
   animation_set_duration((Animation*) anim, duration);
@@ -357,6 +359,34 @@ void bluetooth_state_changed(bool connected) {
   }
 }
 
+void battery_state_changed(BatteryChargeState charge) {
+  PushPullDx direction = Left;
+  if (charge.is_charging) {
+    direction = Right;
+  }
+  static int previous_charge = 0;
+  static char layer_1_buffer[] = "0000";
+  static char layer_2_buffer[] = "0000";
+  
+  if (first_startup) {
+    previous_charge = charge.charge_percent;
+    snprintf(layer_1_buffer, sizeof(layer_1_buffer), "%d%%", charge.charge_percent);
+    text_layer_set_text(s_battery_1, layer_1_buffer);
+    snprintf(layer_2_buffer, sizeof(layer_2_buffer), "%d%%", charge.charge_percent);
+    text_layer_set_text(s_battery_2, layer_2_buffer);
+  } else if (previous_charge != charge.charge_percent) {     
+    if (0 == current_layer_index(bt_row)) {
+      snprintf(layer_1_buffer, sizeof(layer_1_buffer), "%d%%", charge.charge_percent);
+      text_layer_set_text(s_battery_1, layer_1_buffer);
+    } else {
+      snprintf(layer_2_buffer, sizeof(layer_2_buffer), "%d%%", charge.charge_percent);
+      text_layer_set_text(s_battery_2, layer_2_buffer);
+    }
+    
+    swap_row(battery_row, direction, PUSH_PULL_DURATION, PUSH_PULL_DELAY, NULL);
+  }
+}
+
 static void window_load(Window *window) {
   s_time_1 = text_layer_create(GRectZero);
   text_layer_set_background_color(s_time_1, GColorBlack);
@@ -423,15 +453,18 @@ static void window_load(Window *window) {
   s_battery_2 = text_layer_create(GRectZero);
   text_layer_set_background_color(s_battery_2, GColorWhite);
   text_layer_set_text_color(s_battery_2, GColorBlack); 
-  text_layer_set_font(s_battery_2, custom_font_20);
+  text_layer_set_font(s_battery_2, custom_font_28);
   text_layer_set_text_alignment(s_battery_2, GTextAlignmentCenter);
   
-  time_row = initialize_row(window, text_layer_get_layer(s_time_1), text_layer_get_layer(s_time_2), RSP_80, 0, 42);
-  seconds_row = initialize_row(window, text_layer_get_layer(s_seconds_1), text_layer_get_layer(s_seconds_2), RSP_80, 42, 42);
-  date_row = initialize_row(window, text_layer_get_layer(s_date_1), text_layer_get_layer(s_date_2), RSP_40, 84, 42);
-  bt_row = initialize_row(window, text_layer_get_layer(s_bt_1), text_layer_get_layer(s_bt_2), RSP_70, 126, 42);
+  time_row = initialize_row(window, text_layer_get_layer(s_time_1), text_layer_get_layer(s_time_2), RSP_80, 0, 34);
+  seconds_row = initialize_row(window, text_layer_get_layer(s_seconds_1), text_layer_get_layer(s_seconds_2), RSP_80, 34, 34);
+  date_row = initialize_row(window, text_layer_get_layer(s_date_1), text_layer_get_layer(s_date_2), RSP_40, 68, 34);
+  bt_row = initialize_row(window, text_layer_get_layer(s_bt_1), text_layer_get_layer(s_bt_2), RSP_70, 102, 34);
+  battery_row = initialize_row(window, text_layer_get_layer(s_battery_1), text_layer_get_layer(s_battery_2), RSP_60, 136, 32);
   
   bluetooth_state_changed(bluetooth_connection_service_peek());
+  battery_state_changed(battery_state_service_peek());
+  first_startup = false;
 }
 
 static void window_unload(Window *window) {
@@ -453,6 +486,8 @@ static void window_unload(Window *window) {
 }
 
 static void init(void) {
+  first_startup = true;
+  
   main_window = window_create(); 
   custom_font_20 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DIGI_20));
   custom_font_24 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DIGI_24));
@@ -460,6 +495,7 @@ static void init(void) {
   
   tick_timer_service_subscribe(MINUTE_UNIT | DAY_UNIT | SECOND_UNIT, tick_handler);
   bluetooth_connection_service_subscribe(bluetooth_state_changed);
+  battery_state_service_subscribe(battery_state_changed);
   
   window_set_window_handlers(main_window, (WindowHandlers) {
     .load = window_load,
@@ -472,6 +508,11 @@ static void init(void) {
 static void deinit(void) {
   window_destroy(main_window);
   animation_unschedule_all();
+  
+  tick_timer_service_unsubscribe();
+  battery_state_service_unsubscribe();
+  bluetooth_connection_service_unsubscribe();
+  
   fonts_unload_custom_font(custom_font_20);
   fonts_unload_custom_font(custom_font_24);
   fonts_unload_custom_font(custom_font_28);
