@@ -10,7 +10,7 @@
 #define MAX_W 144
 #define MAX_H 168
 
-typedef void(*PushPullAnimationEndCallback)(void*);
+typedef void(*PushPullAnimationEndCallback)(void);
 
 typedef enum {
   Self = 0,
@@ -103,86 +103,70 @@ void schedule_animation(PropertyAnimation* anim) {
   animation_schedule((Animation*) anim);
 }
 
-void generic_animation_stop_handler(Animation *animation, bool finished, void *context) {
-  property_animation_destroy((PropertyAnimation*)animation);
-  PushPullAnimationData* data = (PushPullAnimationData*)context;
-  
-  if (data) {
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "Stop Handler With Data %p", context);
-    if (data->callback) {
-      data->callback(data->callback_data);
-    }
-    free(data);
+void do_nothing_on_stop_handler(Animation *animation, bool finished, void *context) {
+  PushPullAnimationEndCallback callback = (PushPullAnimationEndCallback)context;
+  if (callback) {
+    callback();
   }
+  
+  property_animation_destroy((PropertyAnimation*)animation);
 }
 
 void wrap_around_on_stop_handler(Animation *animation, bool finished, void *context) {
   PushPullAnimationData* data = (PushPullAnimationData*)context;
   property_animation_destroy((PropertyAnimation*)animation);
   
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "Wrap Status %d", data->wrap);
-  
-  if (finished && data && Self == data->wrap) {
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "Done, Wrapping!");
-    layer_set_frame(data->this_layer, data->wrap_location);
-    GRect current_location = layer_get_frame(data->this_layer);
-    PropertyAnimation* anim = prepare_animation(data->this_layer, &current_location, &data->next_layer_start, data->duration, 0);
-    add_animation_handlers(anim, NULL, generic_animation_stop_handler, NULL);
-    schedule_animation(anim);
+  if (finished && data) {
+    if (Self == data->wrap) {
+      layer_set_frame(data->this_layer, data->wrap_location);
+      GRect current_location = layer_get_frame(data->this_layer);
+      PropertyAnimation* anim = prepare_animation(data->this_layer, &current_location, &data->next_layer_start, data->duration, 0);
+      add_animation_handlers(anim, NULL, do_nothing_on_stop_handler, data->callback);
+      schedule_animation(anim);
+    }
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "Freeing PushPullData %p", data);
     free(data);
   }
 }
 
 void wrap_around_on_start_handler(Animation *animation, void *context) {
   PushPullAnimationData* data = (PushPullAnimationData*)context;
-  PushPullAnimationData* data_copy = malloc(sizeof(PushPullAnimationData));
-  memcpy(data_copy, data, sizeof(PushPullAnimationData));
-  
-  PushPullAnimationData* new_data = malloc(sizeof(PushPullAnimationData));
   PropertyAnimation* anim;
   
-  new_data->wrap = Self;
-  new_data->duration = data->duration;
-  new_data->this_layer = data->next_layer;
-  new_data->next_layer_start = data->this_start;
-  new_data->wrap_location = data->wrap_location;
-  new_data->callback = data->callback;
-  new_data->callback_data = data->callback_data;
-  
   if (Other == data->wrap) {
+    data->wrap = Self;
+    data->duration = data->duration;
+    data->this_layer = data->next_layer;
+    data->next_layer_start = data->this_start;
+    data->wrap_location = data->wrap_location;
+    data->callback = data->callback;
+    data->callback_data = data->callback_data;
+  
     APP_LOG(APP_LOG_LEVEL_DEBUG, "Wrapping Other!");
     anim = prepare_animation(data->next_layer, &data->next_layer_start, &data->next_layer_stop, data->duration, 0);
-    add_animation_handlers(anim, NULL, wrap_around_on_stop_handler, new_data);
+    add_animation_handlers(anim, NULL, wrap_around_on_stop_handler, data);
   } else {
     APP_LOG(APP_LOG_LEVEL_DEBUG, "Wrapping Self!");
     anim = prepare_animation(data->next_layer, &data->next_layer_start, &data->next_layer_stop, data->duration, 0);
-    add_animation_handlers(anim, NULL, generic_animation_stop_handler, data_copy);
+    add_animation_handlers(anim, NULL, do_nothing_on_stop_handler, data->callback);
   }
   schedule_animation(anim);
 }
 
-GRect calculate_layer_to_hide_location(GRect location, PushPullDx dx) {
-  int16_t new_x;
-  
-  switch (dx) {
-    case Left:
-      new_x = (location.size.w * -1);
-      return GRect(new_x, location.origin.y, location.size.w, location.size.h);
-     case Right:
-      return GRect(MAX_W, location.origin.y, location.size.w, location.size.h);
-  }
-  
-  return GRectZero;
-}
-
-void push_pull_effect(Layer* showing, Layer* hidden, PushPullDx dx, int duration, int dealy, PushPullAnimationEndCallback callback, void* callback_data) {
+void push_pull_effect(Layer* showing, Layer* hidden, PushPullDx dx, int duration, int dealy, PushPullAnimationEndCallback callback) {
   GRect showing_start = layer_get_frame(showing);
   GRect hidden_start = layer_get_frame(hidden);
   
-  GRect showing_stop;// = calculate_layer_to_hide_location(showing_start, dx);
+  GRect showing_stop;
   
   PushPullAnimationData* push_pull = malloc(sizeof(PushPullAnimationData));
-  AnimationStoppedHandler handler;
+  
+  if (!push_pull) {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "Error allocating push pull data");
+    return;
+  }
+  
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "Allocated PushPullData %p", push_pull);
   
   switch (dx) {
     case Left:
@@ -190,14 +174,11 @@ void push_pull_effect(Layer* showing, Layer* hidden, PushPullDx dx, int duration
       push_pull->next_layer_stop = showing_start;
       push_pull->wrap = Self;
       push_pull->wrap_location = GRect(MAX_W, showing_start.origin.y, showing_start.size.w, showing_start.size.h);
-      handler = wrap_around_on_stop_handler;
       break;
     case Right:
       showing_stop = GRect(hidden_start.origin.x, showing_start.origin.y, showing_start.size.w, showing_start.size.h);
       push_pull->next_layer_stop = GRect(MAX_W, hidden_start.origin.y, hidden_start.size.w, hidden_start.size.h);
       push_pull->wrap = Other;
-      push_pull->wrap_location = GRect(MAX_W * -1, hidden_start.origin.y, hidden_start.size.w, hidden_start.size.h);
-      handler = generic_animation_stop_handler;
       break;
    default:
       return;
@@ -211,11 +192,9 @@ void push_pull_effect(Layer* showing, Layer* hidden, PushPullDx dx, int duration
   push_pull->next_layer_start = hidden_start;
   push_pull->duration = duration;
   push_pull->callback = callback;
-  push_pull->callback_data = callback_data;
-  
   
   PropertyAnimation* anim = prepare_animation(showing, &showing_start, &showing_stop, duration, dealy);
-  add_animation_handlers(anim, wrap_around_on_start_handler, handler, (void*)push_pull);
+  add_animation_handlers(anim, wrap_around_on_start_handler, wrap_around_on_stop_handler, (void*)push_pull);
   schedule_animation(anim);
 }
 
@@ -274,10 +253,10 @@ void* initialize_row(Window* window, Layer* first, Layer* second, RowShowPercent
   return layer_pair;
 }
 
-void swap_row(void* row, PushPullDx direction, int duration, int delay, PushPullAnimationEndCallback callback, void* callback_data) {
+void swap_row(void* row, PushPullDx direction, int duration, int delay, PushPullAnimationEndCallback callback) {
   Layer* current = get_current_layer(row);
   Layer* next = get_next_layer(row);
-  push_pull_effect(current, next, direction, duration, delay, callback, callback_data);
+  push_pull_effect(current, next, direction, duration, delay, callback);
 }
 
 void update_time_layer_1() {
@@ -342,14 +321,18 @@ static void update_seconds_layer_2() {
 
 void update_other_seconds(void* update_proc) {
   typedef void (*seconds_update_proc)(void);
-  seconds_update_proc proc = (seconds_update_proc)update_proc;
-  proc();
+  if (update_proc) {
+    seconds_update_proc proc = (seconds_update_proc)update_proc;
+    proc();
+  }
 }
 
 void update_other_minutes(void* update_proc) {
   typedef void (*minutes_update_proc)(void);
-  minutes_update_proc proc = (minutes_update_proc)update_proc;
-  proc();
+  if (update_proc) {
+    minutes_update_proc proc = (minutes_update_proc)update_proc;
+    proc();
+  }
 }
 
 void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
@@ -359,15 +342,15 @@ void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
     current = get_current_layer(time_row);
     if (0 == current_layer_index(time_row)) {
       update_time_layer_2();
-      swap_row(time_row, Left, PUSH_PULL_DURATION, PUSH_PULL_DELAY, update_other_minutes, update_time_layer_1);
+      swap_row(time_row, Left, PUSH_PULL_DURATION, PUSH_PULL_DELAY, update_time_layer_1);
     } else {
       update_time_layer_1();
-      swap_row(time_row, Left, PUSH_PULL_DURATION, PUSH_PULL_DELAY, update_other_minutes, update_time_layer_2);
+      swap_row(time_row, Left, PUSH_PULL_DURATION, PUSH_PULL_DELAY, update_time_layer_2);
     }
   }
 
   if((units_changed & DAY_UNIT) != 0) {
-    swap_row(date_row, Right, PUSH_PULL_DURATION, PUSH_PULL_DELAY, NULL, NULL);
+    swap_row(date_row, Right, PUSH_PULL_DURATION, PUSH_PULL_DELAY, NULL);
     current = get_current_layer(date_row);
     update_date((TextLayer*)current);
   }
@@ -376,10 +359,10 @@ void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
     current = get_current_layer(seconds_row);
     if (0 == current_layer_index(seconds_row)) {
       update_seconds_layer_2();
-      swap_row(seconds_row, Left, PUSH_PULL_DURATION_SEC, PUSH_PULL_DELAY_SEC, update_other_seconds, update_seconds_layer_1);
+      swap_row(seconds_row, Left, PUSH_PULL_DURATION_SEC, PUSH_PULL_DELAY_SEC, update_seconds_layer_1);
     } else {
       update_seconds_layer_1();
-      swap_row(seconds_row, Left, PUSH_PULL_DURATION_SEC, PUSH_PULL_DELAY_SEC, update_other_seconds, update_seconds_layer_2);
+      swap_row(seconds_row, Left, PUSH_PULL_DURATION_SEC, PUSH_PULL_DELAY_SEC, update_seconds_layer_2);
     }
   }
 }
@@ -387,10 +370,10 @@ void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
 void bluetooth_state_changed(bool connected) {
   if (connected) {
     if (0 != current_layer_index(bt_row)) {
-      swap_row(bt_row, Right, PUSH_PULL_DURATION, PUSH_PULL_DELAY, NULL, NULL);
+      swap_row(bt_row, Right, PUSH_PULL_DURATION, PUSH_PULL_DELAY, NULL);
     }
   } else if (1 != current_layer_index(bt_row)) {
-    swap_row(bt_row, Right, PUSH_PULL_DURATION, PUSH_PULL_DELAY, NULL, NULL);
+    swap_row(bt_row, Right, PUSH_PULL_DURATION, PUSH_PULL_DELAY, NULL);
   }
 }
 
@@ -450,6 +433,18 @@ static void window_load(Window *window) {
   text_layer_set_font(s_seconds_2, custom_font_28);
   text_layer_set_text_alignment(s_seconds_2, GTextAlignmentCenter);
   update_seconds_layer_2();
+  
+  s_battery_1 = text_layer_create(GRectZero);
+  text_layer_set_background_color(s_battery_1, GColorBlack);
+  text_layer_set_text_color(s_battery_1, GColorWhite);
+  text_layer_set_font(s_battery_1, custom_font_28);
+  text_layer_set_text_alignment(s_battery_1, GTextAlignmentCenter);
+  
+  s_battery_2 = text_layer_create(GRectZero);
+  text_layer_set_background_color(s_bt_2, GColorWhite);
+  text_layer_set_text_color(s_bt_2, GColorBlack); 
+  text_layer_set_font(s_bt_2, custom_font_20);
+  text_layer_set_text_alignment(s_bt_2, GTextAlignmentCenter);
   
   time_row = initialize_row(window, text_layer_get_layer(s_time_1), text_layer_get_layer(s_time_2), RSP_80, 0, 42);
   date_row = initialize_row(window, text_layer_get_layer(s_date_1), text_layer_get_layer(s_date_2), RSP_40, 42, 42);
