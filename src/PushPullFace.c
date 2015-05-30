@@ -447,9 +447,9 @@ static void window_load(Window *window) {
   text_layer_set_text_alignment(s_bt_2, GTextAlignmentCenter);
   
   time_row = initialize_row(window, text_layer_get_layer(s_time_1), text_layer_get_layer(s_time_2), RSP_80, 0, 42);
-  date_row = initialize_row(window, text_layer_get_layer(s_date_1), text_layer_get_layer(s_date_2), RSP_40, 42, 42);
-  bt_row = initialize_row(window, text_layer_get_layer(s_bt_1), text_layer_get_layer(s_bt_2), RSP_70, 84, 42);
-  seconds_row = initialize_row(window, text_layer_get_layer(s_seconds_1), text_layer_get_layer(s_seconds_2), RSP_80, 126, 42);
+  seconds_row = initialize_row(window, text_layer_get_layer(s_seconds_1), text_layer_get_layer(s_seconds_2), RSP_80, 42, 42);
+  date_row = initialize_row(window, text_layer_get_layer(s_date_1), text_layer_get_layer(s_date_2), RSP_40, 84, 42);
+  bt_row = initialize_row(window, text_layer_get_layer(s_bt_1), text_layer_get_layer(s_bt_2), RSP_70, 126, 42);
   
   bluetooth_state_changed(bluetooth_connection_service_peek());
 }
