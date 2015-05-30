@@ -259,87 +259,64 @@ void swap_row(void* row, PushPullDx direction, int duration, int delay, PushPull
   push_pull_effect(current, next, direction, duration, delay, callback);
 }
 
-void update_time_layer_1() {
+void update_time_layer(TextLayer* layer, char* buffer, int buffer_size) {
   time_t temp = time(NULL); 
-  
-  static char buffer[] = "00:00";
-  
   struct tm *tick_time = localtime(&temp);
   if(clock_is_24h_style() == true) {
-    strftime(buffer, sizeof("00:00"), "%H:%M", tick_time);
+    strftime(buffer, buffer_size, "%H:%M", tick_time);
   } else {
-    strftime(buffer, sizeof("00:00"), "%I:%M", tick_time);
+    strftime(buffer, buffer_size, "%I:%M", tick_time);
   }
 
-  text_layer_set_text(s_time_1, buffer);
-}
-
-void update_time_layer_2() {
-  time_t temp = time(NULL); 
-  
-  static char buffer[] = "00:00";
-  
-  struct tm *tick_time = localtime(&temp);
-  if(clock_is_24h_style() == true) {
-    strftime(buffer, sizeof("00:00"), "%H:%M", tick_time);
-  } else {
-    strftime(buffer, sizeof("00:00"), "%I:%M", tick_time);
-  }
-
-  text_layer_set_text(s_time_2, buffer);
-}
-
-static void update_date(TextLayer* layer) {
-  time_t temp = time(NULL); 
-  struct tm *tick_time = localtime(&temp);
-
-  static char buffer[] = "00/00/00";
-  strftime(buffer, sizeof(buffer), "%d/%m/%y", tick_time);
-  
   text_layer_set_text(layer, buffer);
 }
 
-static void update_seconds_layer_1() {
+void update_time_layer_1() {
+  static char buffer[] = "00:00";
+  update_time_layer(s_time_1, buffer, sizeof(buffer));
+}
+
+void update_time_layer_2() {
+  static char buffer[] = "00:00";
+  update_time_layer(s_time_2, buffer, sizeof(buffer));
+}
+
+void update_date_layer(TextLayer* layer, char* buffer, int buffer_size) {
   time_t temp = time(NULL); 
   struct tm *tick_time = localtime(&temp);
+  strftime(buffer, buffer_size, "%d/%m/%y", tick_time);
+  text_layer_set_text(layer, buffer);
+}
 
+void update_date_layer_1() {
+  static char buffer[] = "00/00/00";
+  update_date_layer(s_date_1, buffer, sizeof(buffer));
+}
+
+void update_date_layer_2() {
+  static char buffer[] = "00/00/00";
+  update_date_layer(s_date_2, buffer, sizeof(buffer));
+}
+
+void update_seconds_layer(TextLayer* layer, char* buffer, int buffer_size) {
+  time_t temp = time(NULL); 
+  struct tm *tick_time = localtime(&temp);
+  strftime(buffer, buffer_size, "%S", tick_time);
+  text_layer_set_text(layer, buffer);
+}
+
+void update_seconds_layer_1() {
   static char buffer[] = "00";
-  strftime(buffer, sizeof(buffer), "%S", tick_time);
-  
-  text_layer_set_text(s_seconds_1, buffer);
+  update_seconds_layer(s_seconds_1, buffer, sizeof(buffer));
 }
 
 static void update_seconds_layer_2() {
-  time_t temp = time(NULL); 
-  struct tm *tick_time = localtime(&temp);
-
   static char buffer[] = "00";
-  strftime(buffer, sizeof(buffer), "%S", tick_time);
-  
-  text_layer_set_text(s_seconds_2, buffer);
-}
-
-void update_other_seconds(void* update_proc) {
-  typedef void (*seconds_update_proc)(void);
-  if (update_proc) {
-    seconds_update_proc proc = (seconds_update_proc)update_proc;
-    proc();
-  }
-}
-
-void update_other_minutes(void* update_proc) {
-  typedef void (*minutes_update_proc)(void);
-  if (update_proc) {
-    minutes_update_proc proc = (minutes_update_proc)update_proc;
-    proc();
-  }
+  update_seconds_layer(s_seconds_2, buffer, sizeof(buffer));
 }
 
 void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
-  Layer* current;
-  
   if((units_changed & MINUTE_UNIT) != 0) {
-    current = get_current_layer(time_row);
     if (0 == current_layer_index(time_row)) {
       update_time_layer_2();
       swap_row(time_row, Left, PUSH_PULL_DURATION, PUSH_PULL_DELAY, update_time_layer_1);
@@ -350,13 +327,16 @@ void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   }
 
   if((units_changed & DAY_UNIT) != 0) {
-    swap_row(date_row, Right, PUSH_PULL_DURATION, PUSH_PULL_DELAY, NULL);
-    current = get_current_layer(date_row);
-    update_date((TextLayer*)current);
+    if (0 == current_layer_index(date_row)) {
+      update_date_layer_2();
+      swap_row(date_row, Left, PUSH_PULL_DURATION, PUSH_PULL_DELAY, update_date_layer_1);
+    } else {
+      update_date_layer_1();
+      swap_row(date_row, Left, PUSH_PULL_DURATION, PUSH_PULL_DELAY, update_date_layer_2);
+    }
   }
   
   if((units_changed & SECOND_UNIT) != 0) {
-    current = get_current_layer(seconds_row);
     if (0 == current_layer_index(seconds_row)) {
       update_seconds_layer_2();
       swap_row(seconds_row, Left, PUSH_PULL_DURATION_SEC, PUSH_PULL_DELAY_SEC, update_seconds_layer_1);
@@ -397,14 +377,14 @@ static void window_load(Window *window) {
   text_layer_set_text_color(s_date_1, GColorBlack);
   text_layer_set_font(s_date_1, custom_font_28);
   text_layer_set_text_alignment(s_date_1, GTextAlignmentCenter);
-  update_date(s_date_1);
+  update_date_layer_1();
   
   s_date_2 = text_layer_create(GRectZero);
   text_layer_set_background_color(s_date_2, GColorBlack);
   text_layer_set_text_color(s_date_2, GColorWhite);
   text_layer_set_font(s_date_2, custom_font_28);
   text_layer_set_text_alignment(s_date_2, GTextAlignmentCenter);
-  update_date(s_date_2);
+  update_date_layer_2();
   
   s_bt_1 = text_layer_create(GRectZero);
   text_layer_set_background_color(s_bt_1, GColorBlack);
