@@ -421,10 +421,10 @@ static void window_load(Window *window) {
   text_layer_set_text_alignment(s_battery_1, GTextAlignmentCenter);
   
   s_battery_2 = text_layer_create(GRectZero);
-  text_layer_set_background_color(s_bt_2, GColorWhite);
-  text_layer_set_text_color(s_bt_2, GColorBlack); 
-  text_layer_set_font(s_bt_2, custom_font_20);
-  text_layer_set_text_alignment(s_bt_2, GTextAlignmentCenter);
+  text_layer_set_background_color(s_battery_2, GColorWhite);
+  text_layer_set_text_color(s_battery_2, GColorBlack); 
+  text_layer_set_font(s_battery_2, custom_font_20);
+  text_layer_set_text_alignment(s_battery_2, GTextAlignmentCenter);
   
   time_row = initialize_row(window, text_layer_get_layer(s_time_1), text_layer_get_layer(s_time_2), RSP_80, 0, 42);
   seconds_row = initialize_row(window, text_layer_get_layer(s_seconds_1), text_layer_get_layer(s_seconds_2), RSP_80, 42, 42);
@@ -448,6 +448,8 @@ static void window_unload(Window *window) {
   text_layer_destroy(s_bt_2);
   text_layer_destroy(s_seconds_1);
   text_layer_destroy(s_seconds_2);
+  text_layer_destroy(s_battery_1);
+  text_layer_destroy(s_battery_2);
 }
 
 static void init(void) {
