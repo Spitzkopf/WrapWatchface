@@ -1,0 +1,33 @@
+{
+  "uuid": "05b7ab78-4e55-4423-85cb-7e7540547749",
+  "shortName": "PushPullFace",
+  "longName": "PushPullFace",
+  "companyName": "MakeAwesomeHappen",
+  "versionCode": 1,
+  "versionLabel": "1.0",
+  "watchapp": {
+    "watchface": true
+  },
+  "appKeys": {
+    "dummy": 0
+  },
+  "resources": {
+    "media": [
+      {
+        "file": "fonts/DS-DIGI.TTF",
+        "name": "FONT_DIGI_28",
+        "type": "font"
+      },
+      {
+        "file": "fonts/DS-DIGI.TTF",
+        "name": "FONT_DIGI_24",
+        "type": "font"
+      },
+      {
+        "file": "fonts/DS-DIGI.TTF",
+        "name": "FONT_DIGI_20",
+        "type": "font"
+      }
+    ]
+  }
+}
