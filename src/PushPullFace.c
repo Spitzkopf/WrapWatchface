@@ -107,8 +107,12 @@ void generic_animation_stop_handler(Animation *animation, bool finished, void *c
   property_animation_destroy((PropertyAnimation*)animation);
   PushPullAnimationData* data = (PushPullAnimationData*)context;
   
-  if (data && data->callback) {
-    data->callback(data->callback_data);
+  if (data) {
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "Stop Handler With Data %p", context);
+    if (data->callback) {
+      data->callback(data->callback_data);
+    }
+    free(data);
   }
 }
 
@@ -116,7 +120,6 @@ void wrap_around_on_stop_handler(Animation *animation, bool finished, void *cont
   PushPullAnimationData* data = (PushPullAnimationData*)context;
   property_animation_destroy((PropertyAnimation*)animation);
   
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "Animation Status %d", finished);
   APP_LOG(APP_LOG_LEVEL_DEBUG, "Wrap Status %d", data->wrap);
   
   if (finished && data && Self == data->wrap) {
@@ -132,6 +135,9 @@ void wrap_around_on_stop_handler(Animation *animation, bool finished, void *cont
 
 void wrap_around_on_start_handler(Animation *animation, void *context) {
   PushPullAnimationData* data = (PushPullAnimationData*)context;
+  PushPullAnimationData* data_copy = malloc(sizeof(PushPullAnimationData));
+  memcpy(data_copy, data, sizeof(PushPullAnimationData));
+  
   PushPullAnimationData* new_data = malloc(sizeof(PushPullAnimationData));
   PropertyAnimation* anim;
   
@@ -140,6 +146,8 @@ void wrap_around_on_start_handler(Animation *animation, void *context) {
   new_data->this_layer = data->next_layer;
   new_data->next_layer_start = data->this_start;
   new_data->wrap_location = data->wrap_location;
+  new_data->callback = data->callback;
+  new_data->callback_data = data->callback_data;
   
   if (Other == data->wrap) {
     APP_LOG(APP_LOG_LEVEL_DEBUG, "Wrapping Other!");
@@ -148,7 +156,7 @@ void wrap_around_on_start_handler(Animation *animation, void *context) {
   } else {
     APP_LOG(APP_LOG_LEVEL_DEBUG, "Wrapping Self!");
     anim = prepare_animation(data->next_layer, &data->next_layer_start, &data->next_layer_stop, data->duration, 0);
-    add_animation_handlers(anim, NULL, generic_animation_stop_handler, NULL);
+    add_animation_handlers(anim, NULL, generic_animation_stop_handler, data_copy);
   }
   schedule_animation(anim);
 }
@@ -486,6 +494,7 @@ static void init(void) {
 
 static void deinit(void) {
   window_destroy(main_window);
+  animation_unschedule_all();
   fonts_unload_custom_font(custom_font_20);
   fonts_unload_custom_font(custom_font_24);
   fonts_unload_custom_font(custom_font_28);
