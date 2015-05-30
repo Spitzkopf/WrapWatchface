@@ -368,10 +368,10 @@ void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
     current = get_current_layer(seconds_row);
     if (0 == current_layer_index(seconds_row)) {
       update_seconds_layer_2();
-      swap_row(seconds_row, Right, PUSH_PULL_DURATION_SEC, PUSH_PULL_DELAY_SEC, update_other_seconds, update_seconds_layer_1);
+      swap_row(seconds_row, Left, PUSH_PULL_DURATION_SEC, PUSH_PULL_DELAY_SEC, update_other_seconds, update_seconds_layer_1);
     } else {
       update_seconds_layer_1();
-      swap_row(seconds_row, Right, PUSH_PULL_DURATION_SEC, PUSH_PULL_DELAY_SEC, update_other_seconds, update_seconds_layer_2);
+      swap_row(seconds_row, Left, PUSH_PULL_DURATION_SEC, PUSH_PULL_DELAY_SEC, update_other_seconds, update_seconds_layer_2);
     }
   }
 }
@@ -379,10 +379,10 @@ void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
 void bluetooth_state_changed(bool connected) {
   if (connected) {
     if (0 != current_layer_index(bt_row)) {
-      swap_row(bt_row, Left, PUSH_PULL_DURATION, PUSH_PULL_DELAY, NULL, NULL);
+      swap_row(bt_row, Right, PUSH_PULL_DURATION, PUSH_PULL_DELAY, NULL, NULL);
     }
   } else if (1 != current_layer_index(bt_row)) {
-    swap_row(bt_row, Left, PUSH_PULL_DURATION, PUSH_PULL_DELAY, NULL, NULL);
+    swap_row(bt_row, Right, PUSH_PULL_DURATION, PUSH_PULL_DELAY, NULL, NULL);
   }
 }
 
