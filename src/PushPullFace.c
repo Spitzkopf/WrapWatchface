@@ -401,7 +401,11 @@ static void init(void) {
 
 static void deinit(void) {
   window_destroy(main_window);
+  
   animation_unschedule_all();
+  bluetooth_connection_service_unsubscribe();
+  battery_state_service_unsubscribe();
+  
   fonts_unload_custom_font(custom_font_20);
   fonts_unload_custom_font(custom_font_24);
   fonts_unload_custom_font(custom_font_28);
