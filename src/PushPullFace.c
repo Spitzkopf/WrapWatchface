@@ -12,11 +12,6 @@
 
 typedef void(*PushPullAnimationEndCallback)(void);
 
-typedef enum {
-  Self = 0,
-  Other = 1
-} WrapTarget;
-
 typedef struct {
   Layer* this_layer;
   Layer* next_layer;
@@ -32,10 +27,8 @@ typedef struct {
 
   int duration;
   int delay;
-  WrapTarget wrap;
   
   PushPullAnimationEndCallback callback;
-  void* callback_data;
 } PushPullAnimationData;
 
 typedef enum {
