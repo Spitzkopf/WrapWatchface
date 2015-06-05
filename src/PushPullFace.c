@@ -1,4 +1,5 @@
 #include <pebble.h>
+#include "PushPullUtils.h"
 #include "LayerCollection.h"
 
 #define PUSH_PULL_DURATION 300
@@ -11,11 +12,6 @@
 #define MAX_H 168
 
 typedef void(*PushPullAnimationEndCallback)(void);
-
-typedef enum {
-  Self = 0,
-  Other = 1
-} WrapTarget;
 
 typedef struct {
   Layer* this_layer;
@@ -32,10 +28,8 @@ typedef struct {
 
   int duration;
   int delay;
-  WrapTarget wrap;
   
   PushPullAnimationEndCallback callback;
-  void* callback_data;
 } PushPullAnimationData;
 
 typedef enum {
@@ -63,20 +57,20 @@ GFont custom_font_28;
 
 Window* main_window;
 
-TextLayer* s_time_1;
-TextLayer* s_time_2;
+TextLayer* minutes_1;
+TextLayer* minutes_2;
 
-TextLayer* s_date_1;
-TextLayer* s_date_2;
+TextLayer* date_1;
+TextLayer* date_2;
 
-TextLayer* s_bt_1;
-TextLayer* s_bt_2;
+TextLayer* bt_1;
+TextLayer* bt_2;
 
-TextLayer* s_seconds_1;
-TextLayer* s_seconds_2;
+TextLayer* seconds_1;
+TextLayer* seconds_2;
 
-TextLayer* s_battery_1;
-TextLayer* s_battery_2;
+TextLayer* battery_1;
+TextLayer* battery_2;
 
 void* time_row;
 void* date_row;
@@ -119,15 +113,14 @@ void wrap_around_on_stop_handler(Animation *animation, bool finished, void *cont
   property_animation_destroy((PropertyAnimation*)animation);
   
   if (finished && data) {
-    if (Self == data->wrap) {
       layer_set_frame(data->this_layer, data->wrap_location);
       GRect current_location = layer_get_frame(data->this_layer);
       PropertyAnimation* anim = prepare_animation(data->this_layer, &current_location, &data->next_layer_start, data->duration, 0);
       add_animation_handlers(anim, NULL, do_nothing_on_stop_handler, data->callback);
       schedule_animation(anim);
-    }
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "Freeing PushPullData %p", data);
-    free(data);
+      
+      APP_LOG(APP_LOG_LEVEL_DEBUG, "Freeing PushPullData %p", data);
+      free(data);
   }
 }
 
@@ -135,33 +128,18 @@ void wrap_around_on_start_handler(Animation *animation, void *context) {
   PushPullAnimationData* data = (PushPullAnimationData*)context;
   PropertyAnimation* anim;
   
-  if (Other == data->wrap) {
-    data->wrap = Self;
-    data->duration = data->duration;
-    data->this_layer = data->next_layer;
-    data->next_layer_start = data->this_start;
-    data->wrap_location = data->wrap_location;
-    data->callback = data->callback;
-    data->callback_data = data->callback_data;
+  anim = prepare_animation(data->next_layer, &data->next_layer_start, &data->next_layer_stop, data->duration, 0);
+  add_animation_handlers(anim, NULL, do_nothing_on_stop_handler, data->callback);
   
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "Wrapping Other!");
-    anim = prepare_animation(data->next_layer, &data->next_layer_start, &data->next_layer_stop, data->duration, 0);
-    add_animation_handlers(anim, NULL, wrap_around_on_stop_handler, data);
-  } else {
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "Wrapping Self!");
-    anim = prepare_animation(data->next_layer, &data->next_layer_start, &data->next_layer_stop, data->duration, 0);
-    add_animation_handlers(anim, NULL, do_nothing_on_stop_handler, data->callback);
-  }
   schedule_animation(anim);
 }
 
-void push_pull_effect(Layer* showing, Layer* hidden, PushPullDx dx, int duration, int dealy, PushPullAnimationEndCallback callback) {
-  GRect showing_start = layer_get_frame(showing);
-  GRect hidden_start = layer_get_frame(hidden);
-  
-  GRect showing_stop;
+void push_pull_effect(Layer* left, Layer* right, PushPullDx dx, int duration, int dealy, PushPullAnimationEndCallback callback) {
+  GRect left_start = layer_get_frame(left);
+  GRect right_start = layer_get_frame(right);
   
   PushPullAnimationData* push_pull = malloc(sizeof(PushPullAnimationData));
+  PropertyAnimation* anim;
   
   if (!push_pull) {
     APP_LOG(APP_LOG_LEVEL_ERROR, "Error allocating push pull data");
@@ -172,71 +150,65 @@ void push_pull_effect(Layer* showing, Layer* hidden, PushPullDx dx, int duration
   
   switch (dx) {
     case Left:
-      showing_stop = GRect(showing_start.size.w * -1, showing_start.origin.y, showing_start.size.w, showing_start.size.h);
-      push_pull->next_layer_stop = showing_start;
-      push_pull->wrap = Self;
-      push_pull->wrap_location = GRect(MAX_W, showing_start.origin.y, showing_start.size.w, showing_start.size.h);
+      push_pull->this_layer = left;
+      push_pull->this_start = left_start;
+      push_pull->this_stop = GRect(left_start.size.w * -1, left_start.origin.y, left_start.size.w, left_start.size.h);
+      push_pull->next_layer = right;
+      push_pull->next_layer_start = right_start;
+      push_pull->next_layer_stop = left_start;
+      push_pull->wrap_location = GRect(MAX_W, left_start.origin.y, left_start.size.w, left_start.size.h);
+      anim = prepare_animation(left, &left_start, &push_pull->this_stop, duration, dealy);
       break;
     case Right:
-      showing_stop = GRect(hidden_start.origin.x, showing_start.origin.y, showing_start.size.w, showing_start.size.h);
-      push_pull->next_layer_stop = GRect(MAX_W, hidden_start.origin.y, hidden_start.size.w, hidden_start.size.h);
-      push_pull->wrap = Other;
+      push_pull->this_layer = right;
+      push_pull->this_start = right_start;
+      push_pull->this_stop = GRect(MAX_W, right_start.origin.y, right_start.size.w, right_start.size.h);
+      push_pull->next_layer = left;
+      push_pull->next_layer_start = left_start;
+      push_pull->next_layer_stop = GRect(right_start.origin.x, left_start.origin.y, left_start.size.w, left_start.size.h);
+      push_pull->wrap_location = GRect(0 - right_start.size.w, right_start.origin.y, right_start.size.w, right_start.size.h);
+      anim = prepare_animation(right, &right_start, &push_pull->this_stop, duration, dealy);
       break;
    default:
       return;
   }
   
-  push_pull->this_layer = showing;
-  push_pull->this_start = showing_start;
-  push_pull->this_stop = showing_stop;
-  
-  push_pull->next_layer = hidden;
-  push_pull->next_layer_start = hidden_start;
   push_pull->duration = duration;
   push_pull->callback = callback;
   
-  PropertyAnimation* anim = prepare_animation(showing, &showing_start, &showing_stop, duration, dealy);
   add_animation_handlers(anim, wrap_around_on_start_handler, wrap_around_on_stop_handler, (void*)push_pull);
   schedule_animation(anim);
 }
 
-int get_visible_area(GRect rect) {
-  int hidden_x = 0;
-  int hidden_y = 0;
-  
-  int affective_x = rect.size.w;
-  int affective_y = rect.size.h;
-  
-  if (rect.origin.x < 0) {
-    hidden_x = abs(rect.origin.x);
-    if (hidden_x > rect.size.w) {
-      return 0;
-    }
-    affective_x = rect.size.w - hidden_x;
-  }
-  else if (rect.origin.x > MAX_W) {
-    return 0;
-  }
-  else if (rect.origin.x + rect.size.w > MAX_W) {
-    affective_x = rect.size.w - (rect.origin.x);
-  }
-  
-  if (rect.origin.y < 0) {
-    hidden_y = abs(rect.origin.y);
-    if (hidden_y > rect.size.h) {
-      return 0;
-    }
-    affective_y = rect.size.h = hidden_y;
-  }
-  else if (rect.origin.y > MAX_H) {
-    return 0;
-  }
-   else if (rect.origin.y + rect.size.h > MAX_H) {
-    affective_y = rect.size.h - (rect.origin.y);
-  }
-  
-  return affective_x * affective_y;
+void MAKE_UPDATE_FN_NAME(seconds)(TextLayer* layer, char* buffer, int buffer_size) {
+  time_t temp = time(NULL); 
+  struct tm *tick_time = localtime(&temp);
+  strftime(buffer, buffer_size, "%S", tick_time);
+  text_layer_set_text(layer, buffer);
 }
+
+void MAKE_UPDATE_FN_NAME(minutes)(TextLayer* layer, char* buffer, int buffer_size) {
+  time_t temp = time(NULL); 
+  struct tm *tick_time = localtime(&temp);
+  if(clock_is_24h_style() == true) {
+    strftime(buffer, buffer_size, "%H:%M", tick_time);
+  } else {
+    strftime(buffer, buffer_size, "%I:%M", tick_time);
+  }
+
+  text_layer_set_text(layer, buffer);
+}
+
+void MAKE_UPDATE_FN_NAME(date)(TextLayer* layer, char* buffer, int buffer_size) {
+  time_t temp = time(NULL); 
+  struct tm *tick_time = localtime(&temp);
+  strftime(buffer, buffer_size, "%d/%m/%y", tick_time);
+  text_layer_set_text(layer, buffer);
+}
+
+MAKE_UPDATE_TEXT_LAYER_PAIR(seconds, "00");
+MAKE_UPDATE_TEXT_LAYER_PAIR(minutes, "00:00");
+MAKE_UPDATE_TEXT_LAYER_PAIR(date, "00/00/00");
 
 void* initialize_row(Window* window, Layer* first, Layer* second, RowShowPercentage show_percentage, int y, int h) {
   void* layer_pair = init_layer_collection();
@@ -261,70 +233,14 @@ void swap_row(void* row, PushPullDx direction, int duration, int delay, PushPull
   push_pull_effect(current, next, direction, duration, delay, callback);
 }
 
-void update_time_layer(TextLayer* layer, char* buffer, int buffer_size) {
-  time_t temp = time(NULL); 
-  struct tm *tick_time = localtime(&temp);
-  if(clock_is_24h_style() == true) {
-    strftime(buffer, buffer_size, "%H:%M", tick_time);
-  } else {
-    strftime(buffer, buffer_size, "%I:%M", tick_time);
-  }
-
-  text_layer_set_text(layer, buffer);
-}
-
-void update_time_layer_1() {
-  static char buffer[] = "00:00";
-  update_time_layer(s_time_1, buffer, sizeof(buffer));
-}
-
-void update_time_layer_2() {
-  static char buffer[] = "00:00";
-  update_time_layer(s_time_2, buffer, sizeof(buffer));
-}
-
-void update_date_layer(TextLayer* layer, char* buffer, int buffer_size) {
-  time_t temp = time(NULL); 
-  struct tm *tick_time = localtime(&temp);
-  strftime(buffer, buffer_size, "%d/%m/%y", tick_time);
-  text_layer_set_text(layer, buffer);
-}
-
-void update_date_layer_1() {
-  static char buffer[] = "00/00/00";
-  update_date_layer(s_date_1, buffer, sizeof(buffer));
-}
-
-void update_date_layer_2() {
-  static char buffer[] = "00/00/00";
-  update_date_layer(s_date_2, buffer, sizeof(buffer));
-}
-
-void update_seconds_layer(TextLayer* layer, char* buffer, int buffer_size) {
-  time_t temp = time(NULL); 
-  struct tm *tick_time = localtime(&temp);
-  strftime(buffer, buffer_size, "%S", tick_time);
-  text_layer_set_text(layer, buffer);
-}
-
-void update_seconds_layer_1() {
-  static char buffer[] = "00";
-  update_seconds_layer(s_seconds_1, buffer, sizeof(buffer));
-}
-
-static void update_seconds_layer_2() {
-  static char buffer[] = "00";
-  update_seconds_layer(s_seconds_2, buffer, sizeof(buffer));
-}
-
 void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   if((units_changed & MINUTE_UNIT) != 0) {
     if (0 == current_layer_index(time_row)) {
-      update_time_layer_2();
-      swap_row(time_row, Left, PUSH_PULL_DURATION, PUSH_PULL_DELAY, update_time_layer_1);
+      update_minutes_layer_2();
+      swap_row(time_row, Left, PUSH_PULL_DURATION, PUSH_PULL_DELAY, update_minutes_layer_1);
     } else {
-      update_time_layer_1();
-      swap_row(time_row, Left, PUSH_PULL_DURATION, PUSH_PULL_DELAY, update_time_layer_2);
+      update_minutes_layer_1();
+      swap_row(time_row, Left, PUSH_PULL_DURATION, PUSH_PULL_DELAY, update_minutes_layer_2);
     }
   }
 
@@ -365,22 +281,22 @@ void battery_state_changed(BatteryChargeState charge) {
     direction = Right;
   }
   static int previous_charge = 0;
-  static char layer_1_buffer[] = "0000";
-  static char layer_2_buffer[] = "0000";
-  
+  static char layer_1_buffer[32];
+  static char layer_2_buffer[32];
+
   if (first_startup) {
     previous_charge = charge.charge_percent;
     snprintf(layer_1_buffer, sizeof(layer_1_buffer), "%d%%", charge.charge_percent);
-    text_layer_set_text(s_battery_1, layer_1_buffer);
+    text_layer_set_text(battery_1, layer_1_buffer);
     snprintf(layer_2_buffer, sizeof(layer_2_buffer), "%d%%", charge.charge_percent);
-    text_layer_set_text(s_battery_2, layer_2_buffer);
+    text_layer_set_text(battery_2, layer_2_buffer);
   } else if (previous_charge != charge.charge_percent) {     
     if (0 == current_layer_index(bt_row)) {
       snprintf(layer_1_buffer, sizeof(layer_1_buffer), "%d%%", charge.charge_percent);
-      text_layer_set_text(s_battery_1, layer_1_buffer);
+      text_layer_set_text(battery_1, layer_1_buffer);
     } else {
       snprintf(layer_2_buffer, sizeof(layer_2_buffer), "%d%%", charge.charge_percent);
-      text_layer_set_text(s_battery_2, layer_2_buffer);
+      text_layer_set_text(battery_2, layer_2_buffer);
     }
     
     swap_row(battery_row, direction, PUSH_PULL_DURATION, PUSH_PULL_DELAY, NULL);
@@ -388,79 +304,80 @@ void battery_state_changed(BatteryChargeState charge) {
 }
 
 static void window_load(Window *window) {
-  s_time_1 = text_layer_create(GRectZero);
-  text_layer_set_background_color(s_time_1, GColorBlack);
-  text_layer_set_text_color(s_time_1, GColorWhite);
-  text_layer_set_font(s_time_1, custom_font_28);
-  text_layer_set_text_alignment(s_time_1, GTextAlignmentCenter);
-  update_time_layer_1();
+  first_startup = true;
+  minutes_1 = text_layer_create(GRectZero);
+  text_layer_set_background_color(minutes_1, GColorBlack);
+  text_layer_set_text_color(minutes_1, GColorWhite);
+  text_layer_set_font(minutes_1, custom_font_28);
+  text_layer_set_text_alignment(minutes_1, GTextAlignmentCenter);
+  update_minutes_layer_1();
   
-  s_time_2 = text_layer_create(GRectZero);
-  text_layer_set_background_color(s_time_2, GColorWhite);
-  text_layer_set_text_color(s_time_2, GColorBlack);
-  text_layer_set_font(s_time_2, custom_font_28);
-  text_layer_set_text_alignment(s_time_2, GTextAlignmentCenter);
-  update_time_layer_2();
+  minutes_2 = text_layer_create(GRectZero);
+  text_layer_set_background_color(minutes_2, GColorWhite);
+  text_layer_set_text_color(minutes_2, GColorBlack);
+  text_layer_set_font(minutes_2, custom_font_28);
+  text_layer_set_text_alignment(minutes_2, GTextAlignmentCenter);
+  update_minutes_layer_2();
   
-  s_date_1 = text_layer_create(GRectZero);
-  text_layer_set_background_color(s_date_1, GColorWhite);
-  text_layer_set_text_color(s_date_1, GColorBlack);
-  text_layer_set_font(s_date_1, custom_font_28);
-  text_layer_set_text_alignment(s_date_1, GTextAlignmentCenter);
+  date_1 = text_layer_create(GRectZero);
+  text_layer_set_background_color(date_1, GColorWhite);
+  text_layer_set_text_color(date_1, GColorBlack);
+  text_layer_set_font(date_1, custom_font_28);
+  text_layer_set_text_alignment(date_1, GTextAlignmentCenter);
   update_date_layer_1();
   
-  s_date_2 = text_layer_create(GRectZero);
-  text_layer_set_background_color(s_date_2, GColorBlack);
-  text_layer_set_text_color(s_date_2, GColorWhite);
-  text_layer_set_font(s_date_2, custom_font_28);
-  text_layer_set_text_alignment(s_date_2, GTextAlignmentCenter);
+  date_2 = text_layer_create(GRectZero);
+  text_layer_set_background_color(date_2, GColorBlack);
+  text_layer_set_text_color(date_2, GColorWhite);
+  text_layer_set_font(date_2, custom_font_28);
+  text_layer_set_text_alignment(date_2, GTextAlignmentCenter);
   update_date_layer_2();
   
-  s_bt_1 = text_layer_create(GRectZero);
-  text_layer_set_background_color(s_bt_1, GColorBlack);
-  text_layer_set_text_color(s_bt_1, GColorWhite);
-  text_layer_set_text(s_bt_1, "Bluetooth On");
-  text_layer_set_font(s_bt_1, custom_font_20);
-  text_layer_set_text_alignment(s_bt_1, GTextAlignmentCenter);
+  bt_1 = text_layer_create(GRectZero);
+  text_layer_set_background_color(bt_1, GColorBlack);
+  text_layer_set_text_color(bt_1, GColorWhite);
+  text_layer_set_text(bt_1, "Bluetooth On");
+  text_layer_set_font(bt_1, custom_font_20);
+  text_layer_set_text_alignment(bt_1, GTextAlignmentCenter);
   
-  s_bt_2 = text_layer_create(GRectZero);
-  text_layer_set_background_color(s_bt_2, GColorWhite);
-  text_layer_set_text_color(s_bt_2, GColorBlack);
-  text_layer_set_text(s_bt_2, "Bluetooth Off"); 
-  text_layer_set_font(s_bt_2, custom_font_20);
-  text_layer_set_text_alignment(s_bt_2, GTextAlignmentCenter);
+  bt_2 = text_layer_create(GRectZero);
+  text_layer_set_background_color(bt_2, GColorWhite);
+  text_layer_set_text_color(bt_2, GColorBlack);
+  text_layer_set_text(bt_2, "Bluetooth Off"); 
+  text_layer_set_font(bt_2, custom_font_20);
+  text_layer_set_text_alignment(bt_2, GTextAlignmentCenter);
   
-  s_seconds_1 = text_layer_create(GRectZero);
-  text_layer_set_background_color(s_seconds_1, GColorWhite);
-  text_layer_set_text_color(s_seconds_1, GColorBlack);
-  text_layer_set_font(s_seconds_1, custom_font_28);
-  text_layer_set_text_alignment(s_seconds_1, GTextAlignmentCenter);
+  seconds_1 = text_layer_create(GRectZero);
+  text_layer_set_background_color(seconds_1, GColorWhite);
+  text_layer_set_text_color(seconds_1, GColorBlack);
+  text_layer_set_font(seconds_1, custom_font_28);
+  text_layer_set_text_alignment(seconds_1, GTextAlignmentCenter);
   update_seconds_layer_1();
   
-  s_seconds_2 = text_layer_create(GRectZero);
-  text_layer_set_background_color(s_seconds_2, GColorBlack);
-  text_layer_set_text_color(s_seconds_2, GColorWhite);
-  text_layer_set_font(s_seconds_2, custom_font_28);
-  text_layer_set_text_alignment(s_seconds_2, GTextAlignmentCenter);
+  seconds_2 = text_layer_create(GRectZero);
+  text_layer_set_background_color(seconds_2, GColorBlack);
+  text_layer_set_text_color(seconds_2, GColorWhite);
+  text_layer_set_font(seconds_2, custom_font_28);
+  text_layer_set_text_alignment(seconds_2, GTextAlignmentCenter);
   update_seconds_layer_2();
   
-  s_battery_1 = text_layer_create(GRectZero);
-  text_layer_set_background_color(s_battery_1, GColorBlack);
-  text_layer_set_text_color(s_battery_1, GColorWhite);
-  text_layer_set_font(s_battery_1, custom_font_28);
-  text_layer_set_text_alignment(s_battery_1, GTextAlignmentCenter);
+  battery_1 = text_layer_create(GRectZero);
+  text_layer_set_background_color(battery_1, GColorWhite);
+  text_layer_set_text_color(battery_1, GColorBlack);
+  text_layer_set_font(battery_1, custom_font_28);
+  text_layer_set_text_alignment(battery_1, GTextAlignmentCenter);
   
-  s_battery_2 = text_layer_create(GRectZero);
-  text_layer_set_background_color(s_battery_2, GColorWhite);
-  text_layer_set_text_color(s_battery_2, GColorBlack); 
-  text_layer_set_font(s_battery_2, custom_font_28);
-  text_layer_set_text_alignment(s_battery_2, GTextAlignmentCenter);
+  battery_2 = text_layer_create(GRectZero);
+  text_layer_set_background_color(battery_2, GColorBlack);
+  text_layer_set_text_color(battery_2, GColorWhite);
+  text_layer_set_font(battery_2, custom_font_28);
+  text_layer_set_text_alignment(battery_2, GTextAlignmentCenter);
   
-  time_row = initialize_row(window, text_layer_get_layer(s_time_1), text_layer_get_layer(s_time_2), RSP_80, 0, 34);
-  seconds_row = initialize_row(window, text_layer_get_layer(s_seconds_1), text_layer_get_layer(s_seconds_2), RSP_80, 34, 34);
-  date_row = initialize_row(window, text_layer_get_layer(s_date_1), text_layer_get_layer(s_date_2), RSP_40, 68, 34);
-  bt_row = initialize_row(window, text_layer_get_layer(s_bt_1), text_layer_get_layer(s_bt_2), RSP_70, 102, 34);
-  battery_row = initialize_row(window, text_layer_get_layer(s_battery_1), text_layer_get_layer(s_battery_2), RSP_60, 136, 32);
+  time_row = initialize_row(window, text_layer_get_layer(minutes_1), text_layer_get_layer(minutes_2), RSP_60, 0, 34);
+  seconds_row = initialize_row(window, text_layer_get_layer(seconds_1), text_layer_get_layer(seconds_2), RSP_60, 34, 34);
+  date_row = initialize_row(window, text_layer_get_layer(date_1), text_layer_get_layer(date_2), RSP_60, 68, 34);
+  bt_row = initialize_row(window, text_layer_get_layer(bt_1), text_layer_get_layer(bt_2), RSP_60, 102, 34);
+  battery_row = initialize_row(window, text_layer_get_layer(battery_1), text_layer_get_layer(battery_2), RSP_60, 136, 32);
   
   bluetooth_state_changed(bluetooth_connection_service_peek());
   battery_state_changed(battery_state_service_peek());
@@ -472,22 +389,21 @@ static void window_unload(Window *window) {
   destroy_layer_collection(date_row);
   destroy_layer_collection(bt_row);
   destroy_layer_collection(seconds_row);
+  destroy_layer_collection(battery_row);
   
-  text_layer_destroy(s_time_1);
-  text_layer_destroy(s_time_2);
-  text_layer_destroy(s_date_1);
-  text_layer_destroy(s_date_2);
-  text_layer_destroy(s_bt_1);
-  text_layer_destroy(s_bt_2);
-  text_layer_destroy(s_seconds_1);
-  text_layer_destroy(s_seconds_2);
-  text_layer_destroy(s_battery_1);
-  text_layer_destroy(s_battery_2);
+  text_layer_destroy(seconds_1);
+  text_layer_destroy(seconds_2);
+  text_layer_destroy(minutes_1);
+  text_layer_destroy(minutes_2);
+  text_layer_destroy(date_1);
+  text_layer_destroy(date_2);
+  text_layer_destroy(bt_1);
+  text_layer_destroy(bt_2);
+  text_layer_destroy(battery_1);
+  text_layer_destroy(battery_2);
 }
 
 static void init(void) {
-  first_startup = true;
-  
   main_window = window_create(); 
   custom_font_20 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DIGI_20));
   custom_font_24 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DIGI_24));
@@ -509,9 +425,8 @@ static void deinit(void) {
   window_destroy(main_window);
   animation_unschedule_all();
   
-  tick_timer_service_unsubscribe();
-  battery_state_service_unsubscribe();
   bluetooth_connection_service_unsubscribe();
+  battery_state_service_unsubscribe();
   
   fonts_unload_custom_font(custom_font_20);
   fonts_unload_custom_font(custom_font_24);
