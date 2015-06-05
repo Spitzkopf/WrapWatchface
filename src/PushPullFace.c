@@ -1,5 +1,8 @@
 #include <pebble.h>
+#include <math.h>
+
 #include "PushPullUtils.h"
+#include "LinkedList.h"
 #include "LayerCollection.h"
 
 #define PUSH_PULL_DURATION 300
@@ -78,7 +81,9 @@ void* bt_row;
 void* seconds_row;
 void* battery_row;
 
-bool first_startup;
+void* row_collection;
+
+bool bootstrap;
 
 PropertyAnimation* prepare_animation(Layer* layer, GRect *start, GRect *finish, int duration, int delay) {
   PropertyAnimation *anim = property_animation_create_layer_frame(layer, start, finish);
@@ -210,23 +215,6 @@ MAKE_UPDATE_TEXT_LAYER_PAIR(seconds, "00");
 MAKE_UPDATE_TEXT_LAYER_PAIR(minutes, "00:00");
 MAKE_UPDATE_TEXT_LAYER_PAIR(date, "00/00/00");
 
-void* initialize_row(Window* window, Layer* first, Layer* second, RowShowPercentage show_percentage, int y, int h) {
-  void* layer_pair = init_layer_collection();
-  
-  layer_set_frame(first, GRect((144 - (144 * (show_percentage / 100.0))) * -1, y, 144, h));
-  GRect layer1_frame = layer_get_frame(first);
-  
-  layer_set_frame(second, GRect(layer1_frame.origin.x + layer1_frame.size.w, y, 144, h));
-  
-  layer_add_child(window_get_root_layer(window), first);
-  layer_add_child(window_get_root_layer(window), second);
-  
-  add_layer(layer_pair, first);
-  add_layer(layer_pair, second);
-  
-  return layer_pair;
-}
-
 void swap_row(void* row, PushPullDx direction, int duration, int delay, PushPullAnimationEndCallback callback) {
   Layer* current = get_current_layer(row);
   Layer* next = get_next_layer(row);
@@ -284,7 +272,7 @@ void battery_state_changed(BatteryChargeState charge) {
   static char layer_1_buffer[32];
   static char layer_2_buffer[32];
 
-  if (first_startup) {
+  if (bootstrap) {
     previous_charge = charge.charge_percent;
     snprintf(layer_1_buffer, sizeof(layer_1_buffer), "%d%%", charge.charge_percent);
     text_layer_set_text(battery_1, layer_1_buffer);
@@ -303,8 +291,58 @@ void battery_state_changed(BatteryChargeState charge) {
   }
 }
 
+void* initialize_row(Window* window, Layer* first, Layer* second, RowShowPercentage show_percentage, int y, int h) {
+  void* layer_pair = init_layer_collection();
+  
+  layer_set_frame(first, GRect((144 - (144 * (show_percentage / 100.0))) * -1, y, 144, h));
+  GRect layer1_frame = layer_get_frame(first);
+  
+  layer_set_frame(second, GRect(layer1_frame.origin.x + layer1_frame.size.w, y, 144, h));
+  
+  layer_add_child(window_get_root_layer(window), first);
+  layer_add_child(window_get_root_layer(window), second);
+  
+  add_layer(layer_pair, first);
+  add_layer(layer_pair, second);
+  
+  return layer_pair;
+}
+
+void* initialize_row_n_out_of(Window* window, Layer* first, Layer* second, RowShowPercentage show_percentage, int index, int total)
+{
+  int layer_size = ceil(MAX_H / (double)total);
+  int last_layer_size = MAX_H - (layer_size * (total - 1));
+  
+  int chosen_size = layer_size;
+  
+  if (index > (total - 1)) {
+    return NULL;
+  }
+  
+  if (index == (total - 1)) {
+    chosen_size = last_layer_size;
+  }
+  
+  return initialize_row(window, first, second, show_percentage, index * layer_size, chosen_size); 
+}
+
 static void window_load(Window *window) {
-  first_startup = true;
+  bootstrap = true;
+    
+  seconds_1 = text_layer_create(GRectZero);
+  text_layer_set_background_color(seconds_1, GColorWhite);
+  text_layer_set_text_color(seconds_1, GColorBlack);
+  text_layer_set_font(seconds_1, custom_font_28);
+  text_layer_set_text_alignment(seconds_1, GTextAlignmentCenter);
+  update_seconds_layer_1();
+  
+  seconds_2 = text_layer_create(GRectZero);
+  text_layer_set_background_color(seconds_2, GColorBlack);
+  text_layer_set_text_color(seconds_2, GColorWhite);
+  text_layer_set_font(seconds_2, custom_font_28);
+  text_layer_set_text_alignment(seconds_2, GTextAlignmentCenter);
+  update_seconds_layer_2();
+  
   minutes_1 = text_layer_create(GRectZero);
   text_layer_set_background_color(minutes_1, GColorBlack);
   text_layer_set_text_color(minutes_1, GColorWhite);
@@ -347,20 +385,6 @@ static void window_load(Window *window) {
   text_layer_set_font(bt_2, custom_font_20);
   text_layer_set_text_alignment(bt_2, GTextAlignmentCenter);
   
-  seconds_1 = text_layer_create(GRectZero);
-  text_layer_set_background_color(seconds_1, GColorWhite);
-  text_layer_set_text_color(seconds_1, GColorBlack);
-  text_layer_set_font(seconds_1, custom_font_28);
-  text_layer_set_text_alignment(seconds_1, GTextAlignmentCenter);
-  update_seconds_layer_1();
-  
-  seconds_2 = text_layer_create(GRectZero);
-  text_layer_set_background_color(seconds_2, GColorBlack);
-  text_layer_set_text_color(seconds_2, GColorWhite);
-  text_layer_set_font(seconds_2, custom_font_28);
-  text_layer_set_text_alignment(seconds_2, GTextAlignmentCenter);
-  update_seconds_layer_2();
-  
   battery_1 = text_layer_create(GRectZero);
   text_layer_set_background_color(battery_1, GColorWhite);
   text_layer_set_text_color(battery_1, GColorBlack);
@@ -373,34 +397,41 @@ static void window_load(Window *window) {
   text_layer_set_font(battery_2, custom_font_28);
   text_layer_set_text_alignment(battery_2, GTextAlignmentCenter);
   
-  time_row = initialize_row(window, text_layer_get_layer(minutes_1), text_layer_get_layer(minutes_2), RSP_60, 0, 34);
-  seconds_row = initialize_row(window, text_layer_get_layer(seconds_1), text_layer_get_layer(seconds_2), RSP_60, 34, 34);
-  date_row = initialize_row(window, text_layer_get_layer(date_1), text_layer_get_layer(date_2), RSP_60, 68, 34);
-  bt_row = initialize_row(window, text_layer_get_layer(bt_1), text_layer_get_layer(bt_2), RSP_60, 102, 34);
-  battery_row = initialize_row(window, text_layer_get_layer(battery_1), text_layer_get_layer(battery_2), RSP_60, 136, 32);
+  row_collection = ll_init_linked_list();
+  time_row = initialize_row_n_out_of(window, text_layer_get_layer(minutes_1), text_layer_get_layer(minutes_2), RSP_60, 0, 5);
+  seconds_row = initialize_row_n_out_of(window, text_layer_get_layer(seconds_1), text_layer_get_layer(seconds_2), RSP_60, 1, 5);
+  date_row = initialize_row_n_out_of(window, text_layer_get_layer(date_1), text_layer_get_layer(date_2), RSP_60, 2, 5);
+  bt_row = initialize_row_n_out_of(window, text_layer_get_layer(bt_1), text_layer_get_layer(bt_2), RSP_60, 3, 5);
+  battery_row = initialize_row_n_out_of(window, text_layer_get_layer(battery_1), text_layer_get_layer(battery_2), RSP_60, 4, 5);
+
+  ll_add_item(row_collection, time_row);
+  ll_add_item(row_collection, seconds_row);
+  ll_add_item(row_collection, date_row);
+  ll_add_item(row_collection, bt_row);
+  ll_add_item(row_collection, battery_row);
   
   bluetooth_state_changed(bluetooth_connection_service_peek());
   battery_state_changed(battery_state_service_peek());
-  first_startup = false;
+  bootstrap = false;
 }
 
 static void window_unload(Window *window) {
-  destroy_layer_collection(time_row);
-  destroy_layer_collection(date_row);
-  destroy_layer_collection(bt_row);
-  destroy_layer_collection(seconds_row);
-  destroy_layer_collection(battery_row);
+  int i = 0;
+  int j = 0;
+  int row_count = ll_item_count(row_collection);
+  int layer_count = 0;
+  for (; i != (row_count - 1); ++i) {
+    void* row = ll_get_item_at(row_collection, i);
+    if (row) {
+      layer_count = get_layer_count(row);
+      for (; j != (layer_count - 1); ++j) {
+        text_layer_destroy((TextLayer*)get_layer_at(row, j));
+      }
+      destroy_layer_collection(row);
+    }
+  }
   
-  text_layer_destroy(seconds_1);
-  text_layer_destroy(seconds_2);
-  text_layer_destroy(minutes_1);
-  text_layer_destroy(minutes_2);
-  text_layer_destroy(date_1);
-  text_layer_destroy(date_2);
-  text_layer_destroy(bt_1);
-  text_layer_destroy(bt_2);
-  text_layer_destroy(battery_1);
-  text_layer_destroy(battery_2);
+  ll_destroy_linked_list(row_collection);
 }
 
 static void init(void) {
@@ -410,6 +441,7 @@ static void init(void) {
   custom_font_28 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DIGI_28));
   
   tick_timer_service_subscribe(MINUTE_UNIT | DAY_UNIT | SECOND_UNIT, tick_handler);
+  
   bluetooth_connection_service_subscribe(bluetooth_state_changed);
   battery_state_service_subscribe(battery_state_changed);
   
