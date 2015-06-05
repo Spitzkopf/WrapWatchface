@@ -1,4 +1,5 @@
 #include <pebble.h>
+#include "PushPullUtils.h"
 #include "LayerCollection.h"
 
 #define PUSH_PULL_DURATION 300
@@ -56,26 +57,22 @@ GFont custom_font_28;
 
 Window* main_window;
 
-TextLayer* s_time_1;
-TextLayer* s_time_2;
+TextLayer* minutes_1;
+TextLayer* minutes_2;
 
-TextLayer* s_date_1;
-TextLayer* s_date_2;
+TextLayer* date_1;
+TextLayer* date_2;
 
-TextLayer* s_bt_1;
-TextLayer* s_bt_2;
+TextLayer* bt_1;
+TextLayer* bt_2;
 
-TextLayer* s_seconds_1;
-TextLayer* s_seconds_2;
-
-TextLayer* s_battery_1;
-TextLayer* s_battery_2;
+TextLayer* seconds_1;
+TextLayer* seconds_2;
 
 void* time_row;
 void* date_row;
 void* bt_row;
 void* seconds_row;
-void* battery_row;
 
 PropertyAnimation* prepare_animation(Layer* layer, GRect *start, GRect *finish, int duration, int delay) {
   PropertyAnimation *anim = property_animation_create_layer_frame(layer, start, finish);
@@ -123,7 +120,6 @@ void wrap_around_on_stop_handler(Animation *animation, bool finished, void *cont
 
 void wrap_around_on_start_handler(Animation *animation, void *context) {
   PushPullAnimationData* data = (PushPullAnimationData*)context;
-  PushPullAnimationData* data_copy = NULL;
   PropertyAnimation* anim;
   
   anim = prepare_animation(data->next_layer, &data->next_layer_start, &data->next_layer_stop, data->duration, 0);
@@ -178,43 +174,35 @@ void push_pull_effect(Layer* left, Layer* right, PushPullDx dx, int duration, in
   schedule_animation(anim);
 }
 
-int get_visible_area(GRect rect) {
-  int hidden_x = 0;
-  int hidden_y = 0;
-  
-  int affective_x = rect.size.w;
-  int affective_y = rect.size.h;
-  
-  if (rect.origin.x < 0) {
-    hidden_x = abs(rect.origin.x);
-    if (hidden_x > rect.size.w) {
-      return 0;
-    }
-    affective_x = rect.size.w - hidden_x;
-  }
-  else if (rect.origin.x > MAX_W) {
-    return 0;
-  }
-  else if (rect.origin.x + rect.size.w > MAX_W) {
-    affective_x = rect.size.w - (rect.origin.x);
-  }
-  
-  if (rect.origin.y < 0) {
-    hidden_y = abs(rect.origin.y);
-    if (hidden_y > rect.size.h) {
-      return 0;
-    }
-    affective_y = rect.size.h = hidden_y;
-  }
-  else if (rect.origin.y > MAX_H) {
-    return 0;
-  }
-   else if (rect.origin.y + rect.size.h > MAX_H) {
-    affective_y = rect.size.h - (rect.origin.y);
-  }
-  
-  return affective_x * affective_y;
+void MAKE_UPDATE_FN_NAME(seconds)(TextLayer* layer, char* buffer, int buffer_size) {
+  time_t temp = time(NULL); 
+  struct tm *tick_time = localtime(&temp);
+  strftime(buffer, buffer_size, "%S", tick_time);
+  text_layer_set_text(layer, buffer);
 }
+
+void MAKE_UPDATE_FN_NAME(minutes)(TextLayer* layer, char* buffer, int buffer_size) {
+  time_t temp = time(NULL); 
+  struct tm *tick_time = localtime(&temp);
+  if(clock_is_24h_style() == true) {
+    strftime(buffer, buffer_size, "%H:%M", tick_time);
+  } else {
+    strftime(buffer, buffer_size, "%I:%M", tick_time);
+  }
+
+  text_layer_set_text(layer, buffer);
+}
+
+void MAKE_UPDATE_FN_NAME(date)(TextLayer* layer, char* buffer, int buffer_size) {
+  time_t temp = time(NULL); 
+  struct tm *tick_time = localtime(&temp);
+  strftime(buffer, buffer_size, "%d/%m/%y", tick_time);
+  text_layer_set_text(layer, buffer);
+}
+
+MAKE_UPDATE_TEXT_LAYER_PAIR(seconds, "00");
+MAKE_UPDATE_TEXT_LAYER_PAIR(minutes, "00:00");
+MAKE_UPDATE_TEXT_LAYER_PAIR(date, "00/00/00");
 
 void* initialize_row(Window* window, Layer* first, Layer* second, RowShowPercentage show_percentage, int y, int h) {
   void* layer_pair = init_layer_collection();
@@ -239,70 +227,15 @@ void swap_row(void* row, PushPullDx direction, int duration, int delay, PushPull
   push_pull_effect(current, next, direction, duration, delay, callback);
 }
 
-void update_time_layer(TextLayer* layer, char* buffer, int buffer_size) {
-  time_t temp = time(NULL); 
-  struct tm *tick_time = localtime(&temp);
-  if(clock_is_24h_style() == true) {
-    strftime(buffer, buffer_size, "%H:%M", tick_time);
-  } else {
-    strftime(buffer, buffer_size, "%I:%M", tick_time);
-  }
-
-  text_layer_set_text(layer, buffer);
-}
-
-void update_time_layer_1() {
-  static char buffer[] = "00:00";
-  update_time_layer(s_time_1, buffer, sizeof(buffer));
-}
-
-void update_time_layer_2() {
-  static char buffer[] = "00:00";
-  update_time_layer(s_time_2, buffer, sizeof(buffer));
-}
-
-void update_date_layer(TextLayer* layer, char* buffer, int buffer_size) {
-  time_t temp = time(NULL); 
-  struct tm *tick_time = localtime(&temp);
-  strftime(buffer, buffer_size, "%d/%m/%y", tick_time);
-  text_layer_set_text(layer, buffer);
-}
-
-void update_date_layer_1() {
-  static char buffer[] = "00/00/00";
-  update_date_layer(s_date_1, buffer, sizeof(buffer));
-}
-
-void update_date_layer_2() {
-  static char buffer[] = "00/00/00";
-  update_date_layer(s_date_2, buffer, sizeof(buffer));
-}
-
-void update_seconds_layer(TextLayer* layer, char* buffer, int buffer_size) {
-  time_t temp = time(NULL); 
-  struct tm *tick_time = localtime(&temp);
-  strftime(buffer, buffer_size, "%S", tick_time);
-  text_layer_set_text(layer, buffer);
-}
-
-void update_seconds_layer_1() {
-  static char buffer[] = "00";
-  update_seconds_layer(s_seconds_1, buffer, sizeof(buffer));
-}
-
-static void update_seconds_layer_2() {
-  static char buffer[] = "00";
-  update_seconds_layer(s_seconds_2, buffer, sizeof(buffer));
-}
 
 void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   if((units_changed & MINUTE_UNIT) != 0) {
     if (0 == current_layer_index(time_row)) {
-      update_time_layer_2();
-      swap_row(time_row, Left, PUSH_PULL_DURATION, PUSH_PULL_DELAY, update_time_layer_1);
+      update_minutes_layer_2();
+      swap_row(time_row, Left, PUSH_PULL_DURATION, PUSH_PULL_DELAY, update_minutes_layer_1);
     } else {
-      update_time_layer_1();
-      swap_row(time_row, Left, PUSH_PULL_DURATION, PUSH_PULL_DELAY, update_time_layer_2);
+      update_minutes_layer_1();
+      swap_row(time_row, Left, PUSH_PULL_DURATION, PUSH_PULL_DELAY, update_minutes_layer_2);
     }
   }
 
@@ -338,78 +271,66 @@ void bluetooth_state_changed(bool connected) {
 }
 
 static void window_load(Window *window) {
-  s_time_1 = text_layer_create(GRectZero);
-  text_layer_set_background_color(s_time_1, GColorBlack);
-  text_layer_set_text_color(s_time_1, GColorWhite);
-  text_layer_set_font(s_time_1, custom_font_28);
-  text_layer_set_text_alignment(s_time_1, GTextAlignmentCenter);
-  update_time_layer_1();
+  minutes_1 = text_layer_create(GRectZero);
+  text_layer_set_background_color(minutes_1, GColorBlack);
+  text_layer_set_text_color(minutes_1, GColorWhite);
+  text_layer_set_font(minutes_1, custom_font_28);
+  text_layer_set_text_alignment(minutes_1, GTextAlignmentCenter);
+  update_minutes_layer_1();
   
-  s_time_2 = text_layer_create(GRectZero);
-  text_layer_set_background_color(s_time_2, GColorWhite);
-  text_layer_set_text_color(s_time_2, GColorBlack);
-  text_layer_set_font(s_time_2, custom_font_28);
-  text_layer_set_text_alignment(s_time_2, GTextAlignmentCenter);
-  update_time_layer_2();
+  minutes_2 = text_layer_create(GRectZero);
+  text_layer_set_background_color(minutes_2, GColorWhite);
+  text_layer_set_text_color(minutes_2, GColorBlack);
+  text_layer_set_font(minutes_2, custom_font_28);
+  text_layer_set_text_alignment(minutes_2, GTextAlignmentCenter);
+  update_minutes_layer_2();
   
-  s_date_1 = text_layer_create(GRectZero);
-  text_layer_set_background_color(s_date_1, GColorWhite);
-  text_layer_set_text_color(s_date_1, GColorBlack);
-  text_layer_set_font(s_date_1, custom_font_28);
-  text_layer_set_text_alignment(s_date_1, GTextAlignmentCenter);
+  date_1 = text_layer_create(GRectZero);
+  text_layer_set_background_color(date_1, GColorWhite);
+  text_layer_set_text_color(date_1, GColorBlack);
+  text_layer_set_font(date_1, custom_font_28);
+  text_layer_set_text_alignment(date_1, GTextAlignmentCenter);
   update_date_layer_1();
   
-  s_date_2 = text_layer_create(GRectZero);
-  text_layer_set_background_color(s_date_2, GColorBlack);
-  text_layer_set_text_color(s_date_2, GColorWhite);
-  text_layer_set_font(s_date_2, custom_font_28);
-  text_layer_set_text_alignment(s_date_2, GTextAlignmentCenter);
+  date_2 = text_layer_create(GRectZero);
+  text_layer_set_background_color(date_2, GColorBlack);
+  text_layer_set_text_color(date_2, GColorWhite);
+  text_layer_set_font(date_2, custom_font_28);
+  text_layer_set_text_alignment(date_2, GTextAlignmentCenter);
   update_date_layer_2();
   
-  s_bt_1 = text_layer_create(GRectZero);
-  text_layer_set_background_color(s_bt_1, GColorBlack);
-  text_layer_set_text_color(s_bt_1, GColorWhite);
-  text_layer_set_text(s_bt_1, "Bluetooth On");
-  text_layer_set_font(s_bt_1, custom_font_20);
-  text_layer_set_text_alignment(s_bt_1, GTextAlignmentCenter);
+  bt_1 = text_layer_create(GRectZero);
+  text_layer_set_background_color(bt_1, GColorBlack);
+  text_layer_set_text_color(bt_1, GColorWhite);
+  text_layer_set_text(bt_1, "Bluetooth On");
+  text_layer_set_font(bt_1, custom_font_20);
+  text_layer_set_text_alignment(bt_1, GTextAlignmentCenter);
   
-  s_bt_2 = text_layer_create(GRectZero);
-  text_layer_set_background_color(s_bt_2, GColorWhite);
-  text_layer_set_text_color(s_bt_2, GColorBlack);
-  text_layer_set_text(s_bt_2, "Bluetooth Off"); 
-  text_layer_set_font(s_bt_2, custom_font_20);
-  text_layer_set_text_alignment(s_bt_2, GTextAlignmentCenter);
+  bt_2 = text_layer_create(GRectZero);
+  text_layer_set_background_color(bt_2, GColorWhite);
+  text_layer_set_text_color(bt_2, GColorBlack);
+  text_layer_set_text(bt_2, "Bluetooth Off"); 
+  text_layer_set_font(bt_2, custom_font_20);
+  text_layer_set_text_alignment(bt_2, GTextAlignmentCenter);
   
-  s_seconds_1 = text_layer_create(GRectZero);
-  text_layer_set_background_color(s_seconds_1, GColorWhite);
-  text_layer_set_text_color(s_seconds_1, GColorBlack);
-  text_layer_set_font(s_seconds_1, custom_font_28);
-  text_layer_set_text_alignment(s_seconds_1, GTextAlignmentCenter);
+  seconds_1 = text_layer_create(GRectZero);
+  text_layer_set_background_color(seconds_1, GColorWhite);
+  text_layer_set_text_color(seconds_1, GColorBlack);
+  text_layer_set_font(seconds_1, custom_font_28);
+  text_layer_set_text_alignment(seconds_1, GTextAlignmentCenter);
   update_seconds_layer_1();
   
-  s_seconds_2 = text_layer_create(GRectZero);
-  text_layer_set_background_color(s_seconds_2, GColorBlack);
-  text_layer_set_text_color(s_seconds_2, GColorWhite);
-  text_layer_set_font(s_seconds_2, custom_font_28);
-  text_layer_set_text_alignment(s_seconds_2, GTextAlignmentCenter);
+  seconds_2 = text_layer_create(GRectZero);
+  text_layer_set_background_color(seconds_2, GColorBlack);
+  text_layer_set_text_color(seconds_2, GColorWhite);
+  text_layer_set_font(seconds_2, custom_font_28);
+  text_layer_set_text_alignment(seconds_2, GTextAlignmentCenter);
   update_seconds_layer_2();
   
-  s_battery_1 = text_layer_create(GRectZero);
-  text_layer_set_background_color(s_battery_1, GColorBlack);
-  text_layer_set_text_color(s_battery_1, GColorWhite);
-  text_layer_set_font(s_battery_1, custom_font_28);
-  text_layer_set_text_alignment(s_battery_1, GTextAlignmentCenter);
-  
-  s_battery_2 = text_layer_create(GRectZero);
-  text_layer_set_background_color(s_battery_2, GColorWhite);
-  text_layer_set_text_color(s_battery_2, GColorBlack); 
-  text_layer_set_font(s_battery_2, custom_font_20);
-  text_layer_set_text_alignment(s_battery_2, GTextAlignmentCenter);
-  
-  time_row = initialize_row(window, text_layer_get_layer(s_time_1), text_layer_get_layer(s_time_2), RSP_60, 0, 42);
-  seconds_row = initialize_row(window, text_layer_get_layer(s_seconds_1), text_layer_get_layer(s_seconds_2), RSP_60, 42, 42);
-  date_row = initialize_row(window, text_layer_get_layer(s_date_1), text_layer_get_layer(s_date_2), RSP_60, 84, 42);
-  bt_row = initialize_row(window, text_layer_get_layer(s_bt_1), text_layer_get_layer(s_bt_2), RSP_60, 126, 42);
+  time_row = initialize_row(window, text_layer_get_layer(minutes_1), text_layer_get_layer(minutes_2), RSP_60, 0, 42);
+  seconds_row = initialize_row(window, text_layer_get_layer(seconds_1), text_layer_get_layer(seconds_2), RSP_60, 42, 42);
+  date_row = initialize_row(window, text_layer_get_layer(date_1), text_layer_get_layer(date_2), RSP_60, 84, 42);
+  bt_row = initialize_row(window, text_layer_get_layer(bt_1), text_layer_get_layer(bt_2), RSP_60, 126, 42);
   
   bluetooth_state_changed(bluetooth_connection_service_peek());
 }
@@ -420,16 +341,14 @@ static void window_unload(Window *window) {
   destroy_layer_collection(bt_row);
   destroy_layer_collection(seconds_row);
   
-  text_layer_destroy(s_time_1);
-  text_layer_destroy(s_time_2);
-  text_layer_destroy(s_date_1);
-  text_layer_destroy(s_date_2);
-  text_layer_destroy(s_bt_1);
-  text_layer_destroy(s_bt_2);
-  text_layer_destroy(s_seconds_1);
-  text_layer_destroy(s_seconds_2);
-  text_layer_destroy(s_battery_1);
-  text_layer_destroy(s_battery_2);
+  text_layer_destroy(minutes_1);
+  text_layer_destroy(minutes_2);
+  text_layer_destroy(date_1);
+  text_layer_destroy(date_2);
+  text_layer_destroy(bt_1);
+  text_layer_destroy(bt_2);
+  text_layer_destroy(seconds_1);
+  text_layer_destroy(seconds_2);
 }
 
 static void init(void) {
