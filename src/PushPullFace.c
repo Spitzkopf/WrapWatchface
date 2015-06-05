@@ -131,20 +131,21 @@ void wrap_around_on_stop_handler(Animation *animation, bool finished, void *cont
 
 void wrap_around_on_start_handler(Animation *animation, void *context) {
   PushPullAnimationData* data = (PushPullAnimationData*)context;
+  PushPullAnimationData* data_copy = NULL;
   PropertyAnimation* anim;
   
   if (Other == data->wrap) {
-    data->wrap = Self;
-    data->duration = data->duration;
-    data->this_layer = data->next_layer;
-    data->next_layer_start = data->this_start;
-    data->wrap_location = data->wrap_location;
-    data->callback = data->callback;
-    data->callback_data = data->callback_data;
+    data_copy = malloc(sizeof(PushPullAnimationData));
+    memcpy(data_copy, data, sizeof(PushPullAnimationData));
+    
+    data_copy->wrap = Self;
+    data_copy->this_layer = data->next_layer;
+    data_copy->next_layer_start = data->this_start;
   
     APP_LOG(APP_LOG_LEVEL_DEBUG, "Wrapping Other!");
+    
     anim = prepare_animation(data->next_layer, &data->next_layer_start, &data->next_layer_stop, data->duration, 0);
-    add_animation_handlers(anim, NULL, wrap_around_on_stop_handler, data);
+    add_animation_handlers(anim, NULL, wrap_around_on_stop_handler, data_copy);
   } else {
     APP_LOG(APP_LOG_LEVEL_DEBUG, "Wrapping Self!");
     anim = prepare_animation(data->next_layer, &data->next_layer_start, &data->next_layer_stop, data->duration, 0);
@@ -179,6 +180,7 @@ void push_pull_effect(Layer* showing, Layer* hidden, PushPullDx dx, int duration
       showing_stop = GRect(hidden_start.origin.x, showing_start.origin.y, showing_start.size.w, showing_start.size.h);
       push_pull->next_layer_stop = GRect(MAX_W, hidden_start.origin.y, hidden_start.size.w, hidden_start.size.h);
       push_pull->wrap = Other;
+      push_pull->wrap_location = GRect(0 - hidden_start.size.w, hidden_start.origin.y, hidden_start.size.w, hidden_start.size.h);
       break;
    default:
       return;
@@ -426,10 +428,10 @@ static void window_load(Window *window) {
   text_layer_set_font(s_battery_2, custom_font_20);
   text_layer_set_text_alignment(s_battery_2, GTextAlignmentCenter);
   
-  time_row = initialize_row(window, text_layer_get_layer(s_time_1), text_layer_get_layer(s_time_2), RSP_80, 0, 42);
-  seconds_row = initialize_row(window, text_layer_get_layer(s_seconds_1), text_layer_get_layer(s_seconds_2), RSP_80, 42, 42);
-  date_row = initialize_row(window, text_layer_get_layer(s_date_1), text_layer_get_layer(s_date_2), RSP_40, 84, 42);
-  bt_row = initialize_row(window, text_layer_get_layer(s_bt_1), text_layer_get_layer(s_bt_2), RSP_70, 126, 42);
+  time_row = initialize_row(window, text_layer_get_layer(s_time_1), text_layer_get_layer(s_time_2), RSP_60, 0, 42);
+  seconds_row = initialize_row(window, text_layer_get_layer(s_seconds_1), text_layer_get_layer(s_seconds_2), RSP_60, 42, 42);
+  date_row = initialize_row(window, text_layer_get_layer(s_date_1), text_layer_get_layer(s_date_2), RSP_60, 84, 42);
+  bt_row = initialize_row(window, text_layer_get_layer(s_bt_1), text_layer_get_layer(s_bt_2), RSP_60, 126, 42);
   
   bluetooth_state_changed(bluetooth_connection_service_peek());
 }
