@@ -227,7 +227,6 @@ void swap_row(void* row, PushPullDx direction, int duration, int delay, PushPull
   push_pull_effect(current, next, direction, duration, delay, callback);
 }
 
-
 void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   if((units_changed & MINUTE_UNIT) != 0) {
     if (0 == current_layer_index(time_row)) {
@@ -341,14 +340,14 @@ static void window_unload(Window *window) {
   destroy_layer_collection(bt_row);
   destroy_layer_collection(seconds_row);
   
+  text_layer_destroy(seconds_1);
+  text_layer_destroy(seconds_2);
   text_layer_destroy(minutes_1);
   text_layer_destroy(minutes_2);
   text_layer_destroy(date_1);
   text_layer_destroy(date_2);
   text_layer_destroy(bt_1);
   text_layer_destroy(bt_2);
-  text_layer_destroy(seconds_1);
-  text_layer_destroy(seconds_2);
 }
 
 static void init(void) {
