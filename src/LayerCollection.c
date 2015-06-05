@@ -51,7 +51,7 @@ int current_layer_index(void* layer_collection)
 	return ll_current_item_index(layer_collection);
 }
 
-int layer_count(void* layer_collection)
+int get_layer_count(void* layer_collection)
 {
 	return ll_item_count(layer_collection);
 }
@@ -69,6 +69,11 @@ Layer* get_next_layer(void* layer_collection)
 Layer* get_previous_layer(void* layer_collection)
 {
 	return (Layer*)ll_get_previous_item(layer_collection);
+}
+
+Layer* get_layer_at(void* layer_collection, int index)
+{
+	return (Layer*)ll_get_item_at(layer_collection, index);
 }
 
 int set_current_layer(void* layer_collection, int index)

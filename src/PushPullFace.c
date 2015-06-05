@@ -1,5 +1,8 @@
 #include <pebble.h>
+#include <math.h>
+
 #include "PushPullUtils.h"
+#include "LinkedList.h"
 #include "LayerCollection.h"
 
 #define PUSH_PULL_DURATION 300
@@ -73,6 +76,8 @@ void* time_row;
 void* date_row;
 void* bt_row;
 void* seconds_row;
+
+void* row_collection;
 
 PropertyAnimation* prepare_animation(Layer* layer, GRect *start, GRect *finish, int duration, int delay) {
   PropertyAnimation *anim = property_animation_create_layer_frame(layer, start, finish);
@@ -204,23 +209,6 @@ MAKE_UPDATE_TEXT_LAYER_PAIR(seconds, "00");
 MAKE_UPDATE_TEXT_LAYER_PAIR(minutes, "00:00");
 MAKE_UPDATE_TEXT_LAYER_PAIR(date, "00/00/00");
 
-void* initialize_row(Window* window, Layer* first, Layer* second, RowShowPercentage show_percentage, int y, int h) {
-  void* layer_pair = init_layer_collection();
-  
-  layer_set_frame(first, GRect((144 - (144 * (show_percentage / 100.0))) * -1, y, 144, h));
-  GRect layer1_frame = layer_get_frame(first);
-  
-  layer_set_frame(second, GRect(layer1_frame.origin.x + layer1_frame.size.w, y, 144, h));
-  
-  layer_add_child(window_get_root_layer(window), first);
-  layer_add_child(window_get_root_layer(window), second);
-  
-  add_layer(layer_pair, first);
-  add_layer(layer_pair, second);
-  
-  return layer_pair;
-}
-
 void swap_row(void* row, PushPullDx direction, int duration, int delay, PushPullAnimationEndCallback callback) {
   Layer* current = get_current_layer(row);
   Layer* next = get_next_layer(row);
@@ -267,6 +255,41 @@ void bluetooth_state_changed(bool connected) {
   } else if (1 != current_layer_index(bt_row)) {
     swap_row(bt_row, Right, PUSH_PULL_DURATION, PUSH_PULL_DELAY, NULL);
   }
+}
+
+void* initialize_row(Window* window, Layer* first, Layer* second, RowShowPercentage show_percentage, int y, int h) {
+  void* layer_pair = init_layer_collection();
+  
+  layer_set_frame(first, GRect((144 - (144 * (show_percentage / 100.0))) * -1, y, 144, h));
+  GRect layer1_frame = layer_get_frame(first);
+  
+  layer_set_frame(second, GRect(layer1_frame.origin.x + layer1_frame.size.w, y, 144, h));
+  
+  layer_add_child(window_get_root_layer(window), first);
+  layer_add_child(window_get_root_layer(window), second);
+  
+  add_layer(layer_pair, first);
+  add_layer(layer_pair, second);
+  
+  return layer_pair;
+}
+
+void* initialize_row_n_out_of(Window* window, Layer* first, Layer* second, RowShowPercentage show_percentage, int index, int total)
+{
+  int layer_size = ceil(MAX_H / (double)total);
+  int last_layer_size = MAX_H - (layer_size * (total - 1));
+  
+  int chosen_size = layer_size;
+  
+  if (index > (total - 1)) {
+    return NULL;
+  }
+  
+  if (index == (total - 1)) {
+    chosen_size = last_layer_size;
+  }
+  
+  return initialize_row(window, first, second, show_percentage, index * layer_size, chosen_size); 
 }
 
 static void window_load(Window *window) {
@@ -326,28 +349,37 @@ static void window_load(Window *window) {
   text_layer_set_text_alignment(seconds_2, GTextAlignmentCenter);
   update_seconds_layer_2();
   
-  time_row = initialize_row(window, text_layer_get_layer(minutes_1), text_layer_get_layer(minutes_2), RSP_60, 0, 42);
-  seconds_row = initialize_row(window, text_layer_get_layer(seconds_1), text_layer_get_layer(seconds_2), RSP_60, 42, 42);
-  date_row = initialize_row(window, text_layer_get_layer(date_1), text_layer_get_layer(date_2), RSP_60, 84, 42);
-  bt_row = initialize_row(window, text_layer_get_layer(bt_1), text_layer_get_layer(bt_2), RSP_60, 126, 42);
+  row_collection = ll_init_linked_list();
+  time_row = initialize_row_n_out_of(window, text_layer_get_layer(minutes_1), text_layer_get_layer(minutes_2), RSP_60, 0, 4);
+  seconds_row = initialize_row_n_out_of(window, text_layer_get_layer(seconds_1), text_layer_get_layer(seconds_2), RSP_60, 1, 4);
+  date_row = initialize_row_n_out_of(window, text_layer_get_layer(date_1), text_layer_get_layer(date_2), RSP_60, 2, 4);
+  bt_row = initialize_row_n_out_of(window, text_layer_get_layer(bt_1), text_layer_get_layer(bt_2), RSP_60, 3, 4);
+  
+  ll_add_item(row_collection, time_row);
+  ll_add_item(row_collection, seconds_row);
+  ll_add_item(row_collection, date_row);
+  ll_add_item(row_collection, bt_row);
   
   bluetooth_state_changed(bluetooth_connection_service_peek());
 }
 
 static void window_unload(Window *window) {
-  destroy_layer_collection(time_row);
-  destroy_layer_collection(date_row);
-  destroy_layer_collection(bt_row);
-  destroy_layer_collection(seconds_row);
+  int i = 0;
+  int j = 0;
+  int row_count = ll_item_count(row_collection);
+  int layer_count = 0;
+  for (; i != (row_count - 1); ++i) {
+    void* row = ll_get_item_at(row_collection, i);
+    if (row) {
+      layer_count = get_layer_count(row);
+      for (; j != (layer_count - 1); ++j) {
+        text_layer_destroy((TextLayer*)get_layer_at(row, j));
+      }
+      destroy_layer_collection(row);
+    }
+  }
   
-  text_layer_destroy(seconds_1);
-  text_layer_destroy(seconds_2);
-  text_layer_destroy(minutes_1);
-  text_layer_destroy(minutes_2);
-  text_layer_destroy(date_1);
-  text_layer_destroy(date_2);
-  text_layer_destroy(bt_1);
-  text_layer_destroy(bt_2);
+  ll_destroy_linked_list(row_collection);
 }
 
 static void init(void) {

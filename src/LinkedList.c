@@ -314,6 +314,26 @@ void* ll_get_previous_item(void* linked_list)
 	return current->item;
 }
 
+void* ll_get_item_at(void* linked_list, int index)
+{
+	LinkedList* lc = (LinkedList*)linked_list;
+	LinkedListNode* current = lc->head;
+	int current_index = 0;
+	
+	if (!ll_is_index_in_range(linked_list, index))
+	{
+		return NULL;
+	}
+	
+	while (index != current_index)
+	{
+		current = current->next_node;
+		++current_index;
+	}
+	
+	return current->item;
+}
+
 int ll_set_current_item(void* linked_list, int index)
 {
 	LinkedList* lc = (LinkedList*)linked_list;

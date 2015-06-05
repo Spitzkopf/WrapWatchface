@@ -7,6 +7,7 @@ void ll_destroy_linked_list(void* linked_list);
 void* ll_get_current_item(void* linked_list);
 void* ll_get_next_item(void* linked_list);
 void* ll_get_previous_item(void* linked_list);
+void* ll_get_item_at(void* linked_list, int index);
 
 int ll_set_current_item(void* linked_list, int index);
 
