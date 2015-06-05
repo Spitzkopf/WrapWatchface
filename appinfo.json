@@ -14,17 +14,17 @@
   "resources": {
     "media": [
       {
-        "file": "fonts/DS-DIGI.TTF",
+        "file": "fonts/Rounded Elegance.ttf",
         "name": "FONT_DIGI_28",
         "type": "font"
       },
       {
-        "file": "fonts/DS-DIGI.TTF",
+        "file": "fonts/Rounded Elegance.ttf",
         "name": "FONT_DIGI_24",
         "type": "font"
       },
       {
-        "file": "fonts/DS-DIGI.TTF",
+        "file": "fonts/Rounded Elegance.ttf",
         "name": "FONT_DIGI_20",
         "type": "font"
       }

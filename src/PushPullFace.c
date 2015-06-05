@@ -1,6 +1,7 @@
 #include <pebble.h>
 #include <math.h>
 
+#include "Config.h"
 #include "PushPullUtils.h"
 #include "LinkedList.h"
 #include "LayerCollection.h"
@@ -323,70 +324,70 @@ static void window_load(Window *window) {
   bootstrap = true;
     
   seconds_1 = text_layer_create(GRectZero);
-  text_layer_set_background_color(seconds_1, GColorWhite);
-  text_layer_set_text_color(seconds_1, GColorBlack);
+  text_layer_set_background_color(seconds_1, FIRST_ROW_ELEMENT_BACKGROUND_COLOR);
+  text_layer_set_text_color(seconds_1, FIRST_ROW_TEXT_COLOR);
   text_layer_set_font(seconds_1, custom_font_28);
   text_layer_set_text_alignment(seconds_1, GTextAlignmentCenter);
   update_seconds_layer_1();
   
   seconds_2 = text_layer_create(GRectZero);
-  text_layer_set_background_color(seconds_2, GColorBlack);
-  text_layer_set_text_color(seconds_2, GColorWhite);
+  text_layer_set_background_color(seconds_2, SECOND_ROW_ELEMENT_BACKGROUND_COLOR);
+  text_layer_set_text_color(seconds_2, SECOND_ROW_TEXT_COLOR);
   text_layer_set_font(seconds_2, custom_font_28);
   text_layer_set_text_alignment(seconds_2, GTextAlignmentCenter);
   update_seconds_layer_2();
   
   minutes_1 = text_layer_create(GRectZero);
-  text_layer_set_background_color(minutes_1, GColorBlack);
-  text_layer_set_text_color(minutes_1, GColorWhite);
+  text_layer_set_background_color(minutes_1, FIRST_ROW_ELEMENT_BACKGROUND_COLOR);
+  text_layer_set_text_color(minutes_1, FIRST_ROW_TEXT_COLOR);
   text_layer_set_font(minutes_1, custom_font_28);
   text_layer_set_text_alignment(minutes_1, GTextAlignmentCenter);
   update_minutes_layer_1();
   
   minutes_2 = text_layer_create(GRectZero);
-  text_layer_set_background_color(minutes_2, GColorWhite);
-  text_layer_set_text_color(minutes_2, GColorBlack);
+  text_layer_set_background_color(minutes_2, SECOND_ROW_ELEMENT_BACKGROUND_COLOR);
+  text_layer_set_text_color(minutes_2, SECOND_ROW_TEXT_COLOR);
   text_layer_set_font(minutes_2, custom_font_28);
   text_layer_set_text_alignment(minutes_2, GTextAlignmentCenter);
   update_minutes_layer_2();
   
   date_1 = text_layer_create(GRectZero);
-  text_layer_set_background_color(date_1, GColorWhite);
-  text_layer_set_text_color(date_1, GColorBlack);
+  text_layer_set_background_color(date_1, FIRST_ROW_ELEMENT_BACKGROUND_COLOR);
+  text_layer_set_text_color(date_1, FIRST_ROW_TEXT_COLOR);
   text_layer_set_font(date_1, custom_font_28);
   text_layer_set_text_alignment(date_1, GTextAlignmentCenter);
   update_date_layer_1();
   
   date_2 = text_layer_create(GRectZero);
-  text_layer_set_background_color(date_2, GColorBlack);
-  text_layer_set_text_color(date_2, GColorWhite);
+  text_layer_set_background_color(date_2, SECOND_ROW_ELEMENT_BACKGROUND_COLOR);
+  text_layer_set_text_color(date_2, SECOND_ROW_TEXT_COLOR);
   text_layer_set_font(date_2, custom_font_28);
   text_layer_set_text_alignment(date_2, GTextAlignmentCenter);
   update_date_layer_2();
   
   bt_1 = text_layer_create(GRectZero);
-  text_layer_set_background_color(bt_1, GColorBlack);
-  text_layer_set_text_color(bt_1, GColorWhite);
+  text_layer_set_background_color(bt_1, FIRST_ROW_ELEMENT_BACKGROUND_COLOR);
+  text_layer_set_text_color(bt_1, FIRST_ROW_TEXT_COLOR);
   text_layer_set_text(bt_1, "Bluetooth On");
   text_layer_set_font(bt_1, custom_font_20);
   text_layer_set_text_alignment(bt_1, GTextAlignmentCenter);
   
   bt_2 = text_layer_create(GRectZero);
-  text_layer_set_background_color(bt_2, GColorWhite);
-  text_layer_set_text_color(bt_2, GColorBlack);
+  text_layer_set_background_color(bt_2, SECOND_ROW_ELEMENT_BACKGROUND_COLOR);
+  text_layer_set_text_color(bt_2, SECOND_ROW_TEXT_COLOR);
   text_layer_set_text(bt_2, "Bluetooth Off"); 
   text_layer_set_font(bt_2, custom_font_20);
   text_layer_set_text_alignment(bt_2, GTextAlignmentCenter);
   
   battery_1 = text_layer_create(GRectZero);
-  text_layer_set_background_color(battery_1, GColorWhite);
-  text_layer_set_text_color(battery_1, GColorBlack);
+  text_layer_set_background_color(battery_1, FIRST_ROW_ELEMENT_BACKGROUND_COLOR);
+  text_layer_set_text_color(battery_1, FIRST_ROW_TEXT_COLOR);
   text_layer_set_font(battery_1, custom_font_28);
   text_layer_set_text_alignment(battery_1, GTextAlignmentCenter);
   
   battery_2 = text_layer_create(GRectZero);
-  text_layer_set_background_color(battery_2, GColorBlack);
-  text_layer_set_text_color(battery_2, GColorWhite);
+  text_layer_set_background_color(battery_2, SECOND_ROW_ELEMENT_BACKGROUND_COLOR);
+  text_layer_set_text_color(battery_2, SECOND_ROW_TEXT_COLOR);
   text_layer_set_font(battery_2, custom_font_28);
   text_layer_set_text_alignment(battery_2, GTextAlignmentCenter);
   
@@ -429,6 +430,9 @@ static void window_unload(Window *window) {
 
 static void init(void) {
   main_window = window_create(); 
+  
+  window_set_background_color(main_window, BACKGROUND_COLOR);
+  
   custom_font_20 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DIGI_20));
   custom_font_24 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DIGI_24));
   custom_font_28 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DIGI_28));
