@@ -326,10 +326,10 @@ void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   if((units_changed & SECOND_UNIT) != 0) {
     if (0 == current_layer_index(seconds_row)) {
       update_seconds_layer_2();
-      swap_row(seconds_row, Right, PUSH_PULL_DURATION_SEC, PUSH_PULL_DELAY_SEC, update_seconds_layer_1);
+      swap_row(seconds_row, Left, PUSH_PULL_DURATION_SEC, PUSH_PULL_DELAY_SEC, update_seconds_layer_1);
     } else {
       update_seconds_layer_1();
-      swap_row(seconds_row, Right, PUSH_PULL_DURATION_SEC, PUSH_PULL_DELAY_SEC, update_seconds_layer_2);
+      swap_row(seconds_row, Left, PUSH_PULL_DURATION_SEC, PUSH_PULL_DELAY_SEC, update_seconds_layer_2);
     }
   }
 }
