@@ -272,23 +272,16 @@ void battery_state_changed(BatteryChargeState charge) {
   static char layer_1_buffer[32];
   static char layer_2_buffer[32];
 
-  if (bootstrap) {
-    previous_charge = charge.charge_percent;
-    snprintf(layer_1_buffer, sizeof(layer_1_buffer), "%d%%", charge.charge_percent);
-    text_layer_set_text(battery_1, layer_1_buffer);
-    snprintf(layer_2_buffer, sizeof(layer_2_buffer), "%d%%", charge.charge_percent);
-    text_layer_set_text(battery_2, layer_2_buffer);
-  } else if (previous_charge != charge.charge_percent) {     
-    if (0 == current_layer_index(bt_row)) {
-      snprintf(layer_1_buffer, sizeof(layer_1_buffer), "%d%%", charge.charge_percent);
-      text_layer_set_text(battery_1, layer_1_buffer);
-    } else {
-      snprintf(layer_2_buffer, sizeof(layer_2_buffer), "%d%%", charge.charge_percent);
-      text_layer_set_text(battery_2, layer_2_buffer);
-    }
-    
+  snprintf(layer_1_buffer, sizeof(layer_1_buffer), "%d%%", charge.charge_percent);
+  text_layer_set_text(battery_1, layer_1_buffer);
+  snprintf(layer_2_buffer, sizeof(layer_2_buffer), "%d%%", charge.charge_percent);
+  text_layer_set_text(battery_2, layer_2_buffer);
+  
+  if (!bootstrap && previous_charge != charge.charge_percent) {
     swap_row(battery_row, direction, PUSH_PULL_DURATION, PUSH_PULL_DELAY, NULL);
   }
+  
+  previous_charge = charge.charge_percent;
 }
 
 void* initialize_row(Window* window, Layer* first, Layer* second, RowShowPercentage show_percentage, int y, int h) {
