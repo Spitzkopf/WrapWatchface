@@ -43,15 +43,25 @@ typedef enum {
 
 typedef enum {
   RSP_0 = 0,
+  RSP_5 = 5,
   RSP_10 = 10,
+  RSP_15 = 15,
   RSP_20 = 20,
+  RSP_25 = 25,
   RSP_30 = 30,
+  RSP_35 = 35,
   RSP_40 = 40,
+  RSP_45 = 45,
   RSP_50 = 50,
+  RSP_55 = 55,
   RSP_60 = 60,
+  RSP_65 = 65,
   RSP_70 = 70,
+  RSP_75 = 75,
   RSP_80 = 80,
+  RSP_85 = 85,
   RSP_90 = 90,
+  RSP_95 = 95,
   RSP_100 = 100,
 } RowShowPercentage;
 
@@ -76,11 +86,11 @@ TextLayer* seconds_2;
 TextLayer* battery_1;
 TextLayer* battery_2;
 
-void* time_row;
-void* date_row;
-void* bt_row;
-void* seconds_row;
-void* battery_row;
+void* time_row = NULL;
+void* date_row = NULL;
+void* bt_row = NULL;
+void* seconds_row = NULL;
+void* battery_row = NULL;
 
 void* row_collection;
 
@@ -223,7 +233,7 @@ void swap_row(void* row, PushPullDx direction, int duration, int delay, PushPull
 }
 
 void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
-  if((units_changed & MINUTE_UNIT) != 0) {
+  if(((units_changed & MINUTE_UNIT) != 0) && (time_row)) {
     if (0 == current_layer_index(time_row)) {
       update_minutes_layer_2();
       swap_row(time_row, Left, PUSH_PULL_DURATION, PUSH_PULL_DELAY, update_minutes_layer_1);
@@ -233,7 +243,7 @@ void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
     }
   }
 
-  if((units_changed & DAY_UNIT) != 0) {
+  if(((units_changed & DAY_UNIT) != 0) && (date_row)) {
     if (0 == current_layer_index(date_row)) {
       update_date_layer_2();
       swap_row(date_row, Left, PUSH_PULL_DURATION, PUSH_PULL_DELAY, update_date_layer_1);
@@ -243,7 +253,7 @@ void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
     }
   }
   
-  if((units_changed & SECOND_UNIT) != 0) {
+  if(((units_changed & SECOND_UNIT) != 0) && (seconds_row)) {
     if (0 == current_layer_index(seconds_row)) {
       update_seconds_layer_2();
       swap_row(seconds_row, Left, PUSH_PULL_DURATION_SEC, PUSH_PULL_DELAY_SEC, update_seconds_layer_1);
@@ -255,6 +265,10 @@ void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
 }
 
 void bluetooth_state_changed(bool connected) {
+  if (!bt_row) {
+    return;
+  }
+  
   if (connected) {
     if (0 != current_layer_index(bt_row)) {
       swap_row(bt_row, Right, PUSH_PULL_DURATION, PUSH_PULL_DELAY, NULL);
@@ -265,6 +279,10 @@ void bluetooth_state_changed(bool connected) {
 }
 
 void battery_state_changed(BatteryChargeState charge) {
+  if (!battery_row) {
+    return;
+  }
+  
   PushPullDx direction = Left;
   if (charge.is_charging) {
     direction = Right;
@@ -392,11 +410,11 @@ static void window_load(Window *window) {
   text_layer_set_text_alignment(battery_2, GTextAlignmentCenter);
   
   row_collection = ll_init_linked_list();
-  time_row = initialize_row_n_out_of(window, text_layer_get_layer(minutes_1), text_layer_get_layer(minutes_2), RSP_60, 0, 5);
-  seconds_row = initialize_row_n_out_of(window, text_layer_get_layer(seconds_1), text_layer_get_layer(seconds_2), RSP_60, 1, 5);
-  date_row = initialize_row_n_out_of(window, text_layer_get_layer(date_1), text_layer_get_layer(date_2), RSP_60, 2, 5);
-  bt_row = initialize_row_n_out_of(window, text_layer_get_layer(bt_1), text_layer_get_layer(bt_2), RSP_60, 3, 5);
-  battery_row = initialize_row_n_out_of(window, text_layer_get_layer(battery_1), text_layer_get_layer(battery_2), RSP_60, 4, 5);
+  time_row = initialize_row_n_out_of(window, text_layer_get_layer(minutes_1), text_layer_get_layer(minutes_2), RSP_65, 0, 5);
+  seconds_row = initialize_row_n_out_of(window, text_layer_get_layer(seconds_1), text_layer_get_layer(seconds_2), RSP_65, 1, 5);
+  date_row = initialize_row_n_out_of(window, text_layer_get_layer(date_1), text_layer_get_layer(date_2), RSP_65, 2, 5);
+  bt_row = initialize_row_n_out_of(window, text_layer_get_layer(bt_1), text_layer_get_layer(bt_2), RSP_65, 3, 5);
+  battery_row = initialize_row_n_out_of(window, text_layer_get_layer(battery_1), text_layer_get_layer(battery_2), RSP_65, 4, 5);
 
   ll_add_item(row_collection, time_row);
   ll_add_item(row_collection, seconds_row);
