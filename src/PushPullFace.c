@@ -433,9 +433,9 @@ static void init(void) {
   
   window_set_background_color(main_window, BACKGROUND_COLOR);
   
-  custom_font_20 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DIGI_20));
-  custom_font_24 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DIGI_24));
-  custom_font_28 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DIGI_28));
+  custom_font_20 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_RE_20));
+  custom_font_24 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_RE_24));
+  custom_font_28 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_RE_28));
   
   tick_timer_service_subscribe(MINUTE_UNIT | DAY_UNIT | SECOND_UNIT, tick_handler);
   

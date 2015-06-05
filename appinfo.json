@@ -15,17 +15,17 @@
     "media": [
       {
         "file": "fonts/Rounded Elegance.ttf",
-        "name": "FONT_DIGI_28",
+        "name": "FONT_RE_28",
         "type": "font"
       },
       {
         "file": "fonts/Rounded Elegance.ttf",
-        "name": "FONT_DIGI_24",
+        "name": "FONT_RE_24",
         "type": "font"
       },
       {
         "file": "fonts/Rounded Elegance.ttf",
-        "name": "FONT_DIGI_20",
+        "name": "FONT_RE_20",
         "type": "font"
       }
     ]
