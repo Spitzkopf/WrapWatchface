@@ -71,8 +71,8 @@ GFont custom_font_28;
 
 Window* main_window;
 
-TextLayer* minutes_1;
-TextLayer* minutes_2;
+TextLayer* hours_and_minutes_1;
+TextLayer* hours_and_minutes_2;
 
 TextLayer* date_1;
 TextLayer* date_2;
@@ -86,7 +86,7 @@ TextLayer* seconds_2;
 TextLayer* battery_1;
 TextLayer* battery_2;
 
-void* time_row = NULL;
+void* hours_and_minutes_row = NULL;
 void* date_row = NULL;
 void* bt_row = NULL;
 void* seconds_row = NULL;
@@ -203,7 +203,7 @@ void MAKE_UPDATE_FN_NAME(seconds)(TextLayer* layer, char* buffer, int buffer_siz
   text_layer_set_text(layer, buffer);
 }
 
-void MAKE_UPDATE_FN_NAME(minutes)(TextLayer* layer, char* buffer, int buffer_size) {
+void MAKE_UPDATE_FN_NAME(hours_and_minutes)(TextLayer* layer, char* buffer, int buffer_size) {
   time_t temp = time(NULL); 
   struct tm *tick_time = localtime(&temp);
   if(clock_is_24h_style() == true) {
@@ -223,7 +223,7 @@ void MAKE_UPDATE_FN_NAME(date)(TextLayer* layer, char* buffer, int buffer_size) 
 }
 
 MAKE_UPDATE_TEXT_LAYER_PAIR(seconds, "00");
-MAKE_UPDATE_TEXT_LAYER_PAIR(minutes, "00:00");
+MAKE_UPDATE_TEXT_LAYER_PAIR(hours_and_minutes, "00:00");
 MAKE_UPDATE_TEXT_LAYER_PAIR(date, "00/00/00");
 
 void swap_row(void* row, PushPullDx direction, int duration, int delay, PushPullAnimationEndCallback callback) {
@@ -233,13 +233,13 @@ void swap_row(void* row, PushPullDx direction, int duration, int delay, PushPull
 }
 
 void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
-  if(((units_changed & MINUTE_UNIT) != 0) && (time_row)) {
-    if (0 == current_layer_index(time_row)) {
-      update_minutes_layer_2();
-      swap_row(time_row, Left, PUSH_PULL_DURATION, PUSH_PULL_DELAY, update_minutes_layer_1);
+  if(((units_changed & MINUTE_UNIT) != 0) && (hours_and_minutes_row)) {
+    if (0 == current_layer_index(hours_and_minutes_row)) {
+      update_hours_and_minutes_layer_2();
+      swap_row(hours_and_minutes_row, Left, PUSH_PULL_DURATION, PUSH_PULL_DELAY, update_hours_and_minutes_layer_1);
     } else {
-      update_minutes_layer_1();
-      swap_row(time_row, Left, PUSH_PULL_DURATION, PUSH_PULL_DELAY, update_minutes_layer_2);
+      update_hours_and_minutes_layer_1();
+      swap_row(hours_and_minutes_row, Left, PUSH_PULL_DURATION, PUSH_PULL_DELAY, update_hours_and_minutes_layer_2);
     }
   }
 
@@ -341,82 +341,45 @@ void* initialize_row_n_out_of(Window* window, Layer* first, Layer* second, RowSh
 static void window_load(Window *window) {
   bootstrap = true;
     
-  seconds_1 = text_layer_create(GRectZero);
-  text_layer_set_background_color(seconds_1, FIRST_ROW_ELEMENT_BACKGROUND_COLOR);
-  text_layer_set_text_color(seconds_1, FIRST_ROW_TEXT_COLOR);
-  text_layer_set_font(seconds_1, custom_font_28);
-  text_layer_set_text_alignment(seconds_1, GTextAlignmentCenter);
+  MAKE_TEXT_LAYER_PAIR(seconds, custom_font_28);
+
   update_seconds_layer_1();
-  
-  seconds_2 = text_layer_create(GRectZero);
-  text_layer_set_background_color(seconds_2, SECOND_ROW_ELEMENT_BACKGROUND_COLOR);
-  text_layer_set_text_color(seconds_2, SECOND_ROW_TEXT_COLOR);
-  text_layer_set_font(seconds_2, custom_font_28);
-  text_layer_set_text_alignment(seconds_2, GTextAlignmentCenter);
   update_seconds_layer_2();
   
-  minutes_1 = text_layer_create(GRectZero);
-  text_layer_set_background_color(minutes_1, FIRST_ROW_ELEMENT_BACKGROUND_COLOR);
-  text_layer_set_text_color(minutes_1, FIRST_ROW_TEXT_COLOR);
-  text_layer_set_font(minutes_1, custom_font_28);
-  text_layer_set_text_alignment(minutes_1, GTextAlignmentCenter);
-  update_minutes_layer_1();
+  MAKE_TEXT_LAYER_PAIR(hours_and_minutes, custom_font_28);
   
-  minutes_2 = text_layer_create(GRectZero);
-  text_layer_set_background_color(minutes_2, SECOND_ROW_ELEMENT_BACKGROUND_COLOR);
-  text_layer_set_text_color(minutes_2, SECOND_ROW_TEXT_COLOR);
-  text_layer_set_font(minutes_2, custom_font_28);
-  text_layer_set_text_alignment(minutes_2, GTextAlignmentCenter);
-  update_minutes_layer_2();
+  update_hours_and_minutes_layer_1();
+  update_hours_and_minutes_layer_2();
   
-  date_1 = text_layer_create(GRectZero);
-  text_layer_set_background_color(date_1, FIRST_ROW_ELEMENT_BACKGROUND_COLOR);
-  text_layer_set_text_color(date_1, FIRST_ROW_TEXT_COLOR);
-  text_layer_set_font(date_1, custom_font_28);
-  text_layer_set_text_alignment(date_1, GTextAlignmentCenter);
+  MAKE_TEXT_LAYER_PAIR(date, custom_font_28);
+  
   update_date_layer_1();
-  
-  date_2 = text_layer_create(GRectZero);
-  text_layer_set_background_color(date_2, SECOND_ROW_ELEMENT_BACKGROUND_COLOR);
-  text_layer_set_text_color(date_2, SECOND_ROW_TEXT_COLOR);
-  text_layer_set_font(date_2, custom_font_28);
-  text_layer_set_text_alignment(date_2, GTextAlignmentCenter);
   update_date_layer_2();
   
-  bt_1 = text_layer_create(GRectZero);
-  text_layer_set_background_color(bt_1, FIRST_ROW_ELEMENT_BACKGROUND_COLOR);
-  text_layer_set_text_color(bt_1, FIRST_ROW_TEXT_COLOR);
+  MAKE_TEXT_LAYER_PAIR(bt, custom_font_20);
+  
   text_layer_set_text(bt_1, "Bluetooth On");
-  text_layer_set_font(bt_1, custom_font_20);
-  text_layer_set_text_alignment(bt_1, GTextAlignmentCenter);
-  
-  bt_2 = text_layer_create(GRectZero);
-  text_layer_set_background_color(bt_2, SECOND_ROW_ELEMENT_BACKGROUND_COLOR);
-  text_layer_set_text_color(bt_2, SECOND_ROW_TEXT_COLOR);
   text_layer_set_text(bt_2, "Bluetooth Off"); 
-  text_layer_set_font(bt_2, custom_font_20);
-  text_layer_set_text_alignment(bt_2, GTextAlignmentCenter);
   
-  battery_1 = text_layer_create(GRectZero);
-  text_layer_set_background_color(battery_1, FIRST_ROW_ELEMENT_BACKGROUND_COLOR);
-  text_layer_set_text_color(battery_1, FIRST_ROW_TEXT_COLOR);
-  text_layer_set_font(battery_1, custom_font_28);
-  text_layer_set_text_alignment(battery_1, GTextAlignmentCenter);
-  
-  battery_2 = text_layer_create(GRectZero);
-  text_layer_set_background_color(battery_2, SECOND_ROW_ELEMENT_BACKGROUND_COLOR);
-  text_layer_set_text_color(battery_2, SECOND_ROW_TEXT_COLOR);
-  text_layer_set_font(battery_2, custom_font_28);
-  text_layer_set_text_alignment(battery_2, GTextAlignmentCenter);
+  MAKE_TEXT_LAYER_PAIR(battery, custom_font_28);
   
   row_collection = ll_init_linked_list();
-  time_row = initialize_row_n_out_of(window, text_layer_get_layer(minutes_1), text_layer_get_layer(minutes_2), RSP_65, 0, 5);
-  seconds_row = initialize_row_n_out_of(window, text_layer_get_layer(seconds_1), text_layer_get_layer(seconds_2), RSP_65, 1, 5);
-  date_row = initialize_row_n_out_of(window, text_layer_get_layer(date_1), text_layer_get_layer(date_2), RSP_65, 2, 5);
-  bt_row = initialize_row_n_out_of(window, text_layer_get_layer(bt_1), text_layer_get_layer(bt_2), RSP_65, 3, 5);
-  battery_row = initialize_row_n_out_of(window, text_layer_get_layer(battery_1), text_layer_get_layer(battery_2), RSP_65, 4, 5);
-
-  ll_add_item(row_collection, time_row);
+  
+  if (!row_collection)
+  {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "Error initializing row_collection linked list");
+    return;
+  }
+  
+  ROW_BOOTSTRAP_BEGIN(5)
+    ROW_ADD_LAYER(hours_and_minutes_row, window, text_layer_get_layer(hours_and_minutes_1), text_layer_get_layer(hours_and_minutes_2), RSP_65);
+    ROW_ADD_LAYER(seconds_row, window, text_layer_get_layer(seconds_1), text_layer_get_layer(seconds_2), RSP_65);
+    ROW_ADD_LAYER(date_row, window, text_layer_get_layer(date_1), text_layer_get_layer(date_2), RSP_65);
+    ROW_ADD_LAYER(bt_row, window, text_layer_get_layer(bt_1), text_layer_get_layer(bt_2), RSP_65);
+    ROW_ADD_LAYER(battery_row, window, text_layer_get_layer(battery_1), text_layer_get_layer(battery_2), RSP_65);
+  ROW_BOOTSTRAP_END
+  
+  ll_add_item(row_collection, hours_and_minutes_row);
   ll_add_item(row_collection, seconds_row);
   ll_add_item(row_collection, date_row);
   ll_add_item(row_collection, bt_row);
@@ -424,6 +387,7 @@ static void window_load(Window *window) {
   
   bluetooth_state_changed(bluetooth_connection_service_peek());
   battery_state_changed(battery_state_service_peek());
+  
   bootstrap = false;
 }
 
@@ -464,8 +428,8 @@ static void init(void) {
     .load = window_load,
     .unload = window_unload,
   });
-  const bool animated = true;
-  window_stack_push(main_window, animated);
+
+  window_stack_push(main_window, true);
 }
 
 static void deinit(void) {
