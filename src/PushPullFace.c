@@ -117,15 +117,14 @@ void wrap_around_on_stop_handler(Animation *animation, bool finished, void *cont
   property_animation_destroy((PropertyAnimation*)animation);
   
   if (finished && data) {
-    if (Self == data->wrap) {
       layer_set_frame(data->this_layer, data->wrap_location);
       GRect current_location = layer_get_frame(data->this_layer);
       PropertyAnimation* anim = prepare_animation(data->this_layer, &current_location, &data->next_layer_start, data->duration, 0);
       add_animation_handlers(anim, NULL, do_nothing_on_stop_handler, data->callback);
       schedule_animation(anim);
-    }
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "Freeing PushPullData %p", data);
-    free(data);
+      
+      APP_LOG(APP_LOG_LEVEL_DEBUG, "Freeing PushPullData %p", data);
+      free(data);
   }
 }
 
@@ -134,33 +133,18 @@ void wrap_around_on_start_handler(Animation *animation, void *context) {
   PushPullAnimationData* data_copy = NULL;
   PropertyAnimation* anim;
   
-  if (Other == data->wrap) {
-    data_copy = malloc(sizeof(PushPullAnimationData));
-    memcpy(data_copy, data, sizeof(PushPullAnimationData));
-    
-    data_copy->wrap = Self;
-    data_copy->this_layer = data->next_layer;
-    data_copy->next_layer_start = data->this_start;
+  anim = prepare_animation(data->next_layer, &data->next_layer_start, &data->next_layer_stop, data->duration, 0);
+  add_animation_handlers(anim, NULL, do_nothing_on_stop_handler, data->callback);
   
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "Wrapping Other!");
-    
-    anim = prepare_animation(data->next_layer, &data->next_layer_start, &data->next_layer_stop, data->duration, 0);
-    add_animation_handlers(anim, NULL, wrap_around_on_stop_handler, data_copy);
-  } else {
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "Wrapping Self!");
-    anim = prepare_animation(data->next_layer, &data->next_layer_start, &data->next_layer_stop, data->duration, 0);
-    add_animation_handlers(anim, NULL, do_nothing_on_stop_handler, data->callback);
-  }
   schedule_animation(anim);
 }
 
-void push_pull_effect(Layer* showing, Layer* hidden, PushPullDx dx, int duration, int dealy, PushPullAnimationEndCallback callback) {
-  GRect showing_start = layer_get_frame(showing);
-  GRect hidden_start = layer_get_frame(hidden);
-  
-  GRect showing_stop;
+void push_pull_effect(Layer* left, Layer* right, PushPullDx dx, int duration, int dealy, PushPullAnimationEndCallback callback) {
+  GRect left_start = layer_get_frame(left);
+  GRect right_start = layer_get_frame(right);
   
   PushPullAnimationData* push_pull = malloc(sizeof(PushPullAnimationData));
+  PropertyAnimation* anim;
   
   if (!push_pull) {
     APP_LOG(APP_LOG_LEVEL_ERROR, "Error allocating push pull data");
@@ -171,31 +155,32 @@ void push_pull_effect(Layer* showing, Layer* hidden, PushPullDx dx, int duration
   
   switch (dx) {
     case Left:
-      showing_stop = GRect(showing_start.size.w * -1, showing_start.origin.y, showing_start.size.w, showing_start.size.h);
-      push_pull->next_layer_stop = showing_start;
-      push_pull->wrap = Self;
-      push_pull->wrap_location = GRect(MAX_W, showing_start.origin.y, showing_start.size.w, showing_start.size.h);
+      push_pull->this_layer = left;
+      push_pull->this_start = left_start;
+      push_pull->this_stop = GRect(left_start.size.w * -1, left_start.origin.y, left_start.size.w, left_start.size.h);
+      push_pull->next_layer = right;
+      push_pull->next_layer_start = right_start;
+      push_pull->next_layer_stop = left_start;
+      push_pull->wrap_location = GRect(MAX_W, left_start.origin.y, left_start.size.w, left_start.size.h);
+      anim = prepare_animation(left, &left_start, &push_pull->this_stop, duration, dealy);
       break;
     case Right:
-      showing_stop = GRect(hidden_start.origin.x, showing_start.origin.y, showing_start.size.w, showing_start.size.h);
-      push_pull->next_layer_stop = GRect(MAX_W, hidden_start.origin.y, hidden_start.size.w, hidden_start.size.h);
-      push_pull->wrap = Other;
-      push_pull->wrap_location = GRect(0 - hidden_start.size.w, hidden_start.origin.y, hidden_start.size.w, hidden_start.size.h);
+      push_pull->this_layer = right;
+      push_pull->this_start = right_start;
+      push_pull->this_stop = GRect(MAX_W, right_start.origin.y, right_start.size.w, right_start.size.h);
+      push_pull->next_layer = left;
+      push_pull->next_layer_start = left_start;
+      push_pull->next_layer_stop = GRect(right_start.origin.x, left_start.origin.y, left_start.size.w, left_start.size.h);
+      push_pull->wrap_location = GRect(0 - right_start.size.w, right_start.origin.y, right_start.size.w, right_start.size.h);
+      anim = prepare_animation(right, &right_start, &push_pull->this_stop, duration, dealy);
       break;
    default:
       return;
   }
   
-  push_pull->this_layer = showing;
-  push_pull->this_start = showing_start;
-  push_pull->this_stop = showing_stop;
-  
-  push_pull->next_layer = hidden;
-  push_pull->next_layer_start = hidden_start;
   push_pull->duration = duration;
   push_pull->callback = callback;
   
-  PropertyAnimation* anim = prepare_animation(showing, &showing_start, &showing_stop, duration, dealy);
   add_animation_handlers(anim, wrap_around_on_start_handler, wrap_around_on_stop_handler, (void*)push_pull);
   schedule_animation(anim);
 }
@@ -341,10 +326,10 @@ void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   if((units_changed & SECOND_UNIT) != 0) {
     if (0 == current_layer_index(seconds_row)) {
       update_seconds_layer_2();
-      swap_row(seconds_row, Left, PUSH_PULL_DURATION_SEC, PUSH_PULL_DELAY_SEC, update_seconds_layer_1);
+      swap_row(seconds_row, Right, PUSH_PULL_DURATION_SEC, PUSH_PULL_DELAY_SEC, update_seconds_layer_1);
     } else {
       update_seconds_layer_1();
-      swap_row(seconds_row, Left, PUSH_PULL_DURATION_SEC, PUSH_PULL_DELAY_SEC, update_seconds_layer_2);
+      swap_row(seconds_row, Right, PUSH_PULL_DURATION_SEC, PUSH_PULL_DELAY_SEC, update_seconds_layer_2);
     }
   }
 }
